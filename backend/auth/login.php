@@ -1,47 +1,40 @@
 <?php
-header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: POST");
 
 require_once("../db.php");
 
-// Nhận dữ liệu từ client
 $data = json_decode(file_get_contents("php://input"), true);
-$email = trim($data["email"] ?? "");
-$password = $data["password"] ?? "";
+$email = $data['email'] ?? '';
+$password = $data['password'] ?? '';
 
-// Kiểm tra đầu vào
 if (empty($email) || empty($password)) {
-    echo json_encode(["success" => false, "message" => "Thiếu email hoặc mật khẩu"]);
+    echo json_encode(["success" => false, "message" => "Thiếu thông tin"]);
     exit;
 }
 
-// Truy vấn người dùng
-$stmt = $conn->prepare("SELECT * FROM users WHERE email = ?");
+$stmt = $conn->prepare("SELECT id, name, email, password, role, phone, gender, avatar FROM users WHERE email = ?");
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $result = $stmt->get_result();
 
-if ($result->num_rows === 1) {
-    $user = $result->fetch_assoc();
-
-    // Kiểm tra mật khẩu
-    if (password_verify($password, $user["password"])) {
+if ($row = $result->fetch_assoc()) {
+    if (password_verify($password, $row['password'])) {
         echo json_encode([
             "success" => true,
             "user" => [
-                "id"     => (int)$user["id"],
-                "name"   => $user["name"],
-                "email"  => $user["email"],
-                "phone"  => $user["phone"],
-                "gender" => $user["gender"],
-                "role"   => $user["role"],
-                "avatar" => $user["avatar"] ?? ""
+                "id" => $row['id'],
+                "name" => $row['name'],
+                "email" => $row['email'],
+                "role" => $row['role'],
+                "phone" => $row['phone'],
+                "gender" => $row['gender'],
+                "avatar" => $row['avatar']
             ]
         ]);
-        exit;
+    } else {
+        echo json_encode(["success" => false, "message" => "Sai mật khẩu"]);
     }
+} else {
+    echo json_encode(["success" => false, "message" => "Email không tồn tại"]);
 }
-
-// Mặc định trả về lỗi
-echo json_encode(["success" => false, "message" => "Tài khoản hoặc mật khẩu sai"]);
+?>
