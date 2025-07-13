@@ -32,7 +32,6 @@ $result = $stmt->get_result();
 
 $bookings = [];
 while ($row = $result->fetch_assoc()) {
-    // Chuyển extras JSON thành mảng (nếu không null)
     $row['extras'] = json_decode($row['extras'] ?? '[]', true);
     $bookings[] = $row;
 }

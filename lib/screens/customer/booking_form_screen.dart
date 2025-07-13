@@ -31,6 +31,9 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     service = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final rawPrice = service['price'];
+    final parsedPrice = double.tryParse(rawPrice.toString()) ?? 0.0;
+    print("Service price raw: $rawPrice, parsed: $parsedPrice"); // Debug: Kiểm tra giá thô và sau parse
     _loadEmployees();
     _loadExtras();
     _loadImages();
@@ -110,18 +113,24 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   int _calculateTotal() {
-    int total = int.tryParse(service['price'].toString().replaceAll('.', '')) ?? 0;
+    // Parse giá từ service['price'] thành số thực, sau đó làm tròn
+    double basePrice = double.tryParse(service['price'].toString()) ?? 0.0;
+    int total = basePrice.round();
+    print("Base price raw: ${service['price']}, parsed: $basePrice, total: $total"); // Debug: Kiểm tra giá
     for (var extra in extraServices) {
       if (extra['selected'] == true) {
         total += (extra['price'] as int);
+        print("Added extra: ${extra['name']} - ${extra['price']}"); // Debug: Kiểm tra giá dịch vụ thêm
       }
     }
     return total < 0 ? 0 : total; // Tránh giá trị âm
   }
 
   String _formatCurrency(dynamic amount) {
-    int parsedAmount = int.tryParse(amount.toString().replaceAll('.', '')) ?? 0;
-    return NumberFormat.decimalPattern('vi_VN').format(parsedAmount);
+    // Parse thành số thực, làm tròn và định dạng chỉ số nguyên
+    double parsedAmount = double.tryParse(amount.toString()) ?? 0.0;
+    print("Formatted amount raw: $amount, parsed: $parsedAmount"); // Debug: Kiểm tra giá trị
+    return NumberFormat("#,##0", "vi_VN").format(parsedAmount.round());
   }
 
   Future<void> _saveBookingToServer() async {

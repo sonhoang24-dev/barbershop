@@ -20,7 +20,7 @@ if (!$stmt) {
   die("Lỗi prepare: " . $conn->error);
 }
 
-$stmt->bind_param("i", $booking_id); // truyền biến kiểu INT
+$stmt->bind_param("i", $booking_id);
 $stmt->execute();
 
 $result = $stmt->get_result();

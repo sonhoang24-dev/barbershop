@@ -96,6 +96,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
       return "N/A";
     }
   }
+
   String _formatCurrency(dynamic amount) {
     try {
       final number = double.tryParse(amount.toString()) ?? 0;
@@ -103,6 +104,24 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
       return "${formatter.format(number)} đ";
     } catch (_) {
       return "$amount đ";
+    }
+  }
+
+  // Hàm lấy thông tin trạng thái (màu sắc và biểu tượng)
+  Map<String, dynamic> _getStatusInfo(String status) {
+    switch (status) {
+      case 'Chờ xác nhận':
+        return {'color': Colors.orange, 'icon': Icons.schedule};
+      case 'Đã xác nhận':
+        return {'color': Colors.blue, 'icon': Icons.check_circle};
+      case 'Đang thực hiện':
+        return {'color': Colors.purple, 'icon': Icons.hourglass_top};
+      case 'Đã hoàn thành':
+        return {'color': Colors.green, 'icon': Icons.done_all};
+      case 'Đã huỷ':
+        return {'color': Colors.red, 'icon': Icons.cancel};
+      default:
+        return {'color': Colors.grey, 'icon': Icons.help}; // Trạng thái không xác định
     }
   }
 
@@ -124,6 +143,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
           final extras = (booking['extras'] as List<dynamic>?)?.join(', ') ?? '';
           final createdAt = booking['created_at'] ?? '';
           final hasReview = booking['rating'] != null;
+          final statusInfo = _getStatusInfo(booking['status'] ?? 'Không xác định');
 
           return Card(
             margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -173,24 +193,16 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.access_time,
+                    statusInfo['icon'] as IconData,
                     size: 18,
-                    color: booking['status'] == "Đã huỷ"
-                        ? Colors.red
-                        : booking['status'] == "Đã xác nhận" || booking['status'] == "Hoàn thành"
-                        ? Colors.green
-                        : Colors.orange,
+                    color: statusInfo['color'] as Color,
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    booking['status'],
+                    booking['status'] ?? 'Không xác định',
                     style: TextStyle(
                       fontSize: 12,
-                      color: booking['status'] == "Đã huỷ"
-                          ? Colors.red
-                          : booking['status'] == "Đã xác nhận" || booking['status'] == "Hoàn thành"
-                          ? Colors.green
-                          : Colors.orange,
+                      color: statusInfo['color'] as Color,
                     ),
                   ),
                 ],

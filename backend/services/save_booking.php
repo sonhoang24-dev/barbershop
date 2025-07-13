@@ -4,7 +4,6 @@ require '../db.php';
 $data = json_decode(file_get_contents("php://input"), true);
 $extras = json_encode($data['extras'] ?? [], JSON_UNESCAPED_UNICODE);
 
-// 🚨 Gán trước rồi mới kiểm tra
 $user_id = isset($data['user_id']) ? intval($data['user_id']) : 0;
 if ($user_id <= 0) {
   echo json_encode(["success" => false, "message" => "Thiếu hoặc sai user_id"]);

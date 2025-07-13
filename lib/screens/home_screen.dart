@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../models/service.dart';
-import '../../services/service_service.dart';
+import '../../services/api_service.dart';
 import 'package:barbershop_app/screens/customer/service_detail_screen.dart';
+import 'dart:convert'; // Thêm để giải mã base64
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,7 +25,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _fetchServices() async {
     try {
-      final data = await ServiceService.fetchServices();
+      final data = await ApiService.fetchServices();
       setState(() {
         _services = data;
         _loading = false;
@@ -41,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Dịch vụ tiệm tóc"),
+        title: const Text("Dịch vụ đặt lịch cắt tóc"),
         backgroundColor: Colors.teal,
         centerTitle: true,
       ),
@@ -53,8 +54,7 @@ class _HomeScreenState extends State<HomeScreen> {
         padding: const EdgeInsets.all(12),
         child: GridView.builder(
           itemCount: _services.length,
-          gridDelegate:
-          const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 2,
             crossAxisSpacing: 12,
             mainAxisSpacing: 12,
@@ -95,20 +95,46 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            // Ảnh dịch vụ
             if (service.images.isNotEmpty)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  service.images.first,
-                  height: 80,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                  const Icon(Icons.image_not_supported),
+                child: Builder(
+                  builder: (_) {
+                    final image = service.images.first;
+                    final isBase64 = image.startsWith("data:image/");
+
+                    if (isBase64) {
+                      try {
+                        final base64Str = image.split(',').last;
+                        final bytes = base64Decode(base64Str);
+                        return Image.memory(
+                          bytes,
+                          height: 80,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) =>
+                          const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                        );
+                      } catch (_) {
+                        return const Icon(Icons.broken_image, size: 50, color: Colors.grey);
+                      }
+                    } else {
+                      return Image.network(
+                        image,
+                        height: 80,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.broken_image, size: 50, color: Colors.grey),
+                      );
+                    }
+                  },
                 ),
               )
             else
               const Icon(Icons.cut, size: 50, color: Colors.teal),
+
             const SizedBox(height: 10),
 
             // Tiêu đề
@@ -117,8 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
               textAlign: TextAlign.center,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
-              style:
-              const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             const SizedBox(height: 6),
 
@@ -136,7 +161,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildRatingStars(service.rating),
             const Spacer(),
 
-            // Giá (định dạng)
+            // Giá
             Text(
               "${formatCurrency.format(service.price)} đ",
               style: const TextStyle(
@@ -147,9 +172,9 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             const SizedBox(height: 8),
 
+            // Nút chi tiết
             Container(
-              padding:
-              const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.teal.shade50,
                 borderRadius: BorderRadius.circular(8),

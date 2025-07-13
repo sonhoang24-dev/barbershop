@@ -1,6 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import '../../services/service_service.dart';
+import '../../services/api_service.dart';
 import 'package:intl/intl.dart';
 
 class ServiceDetailScreen extends StatefulWidget {
@@ -24,7 +24,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
   Future<void> _fetchReviews() async {
     try {
-      final fetched = await ServiceService.fetchReviews(widget.service['id']);
+      final fetched = await ApiService.fetchReviews(widget.service['id']);
       setState(() {
         reviews = fetched;
         loading = false;
@@ -40,8 +40,10 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final service = widget.service;
-    final imageBase64List = List<String>.from(service['images'] ?? []);
-
+    final rawPrice = service['price'];
+    final parsedPrice = double.tryParse(rawPrice.toString()) ?? 0.0;
+    print("Service price raw: $rawPrice, parsed: $parsedPrice"); // Debug: Kiểm tra giá thô và sau parse
+    final imageList = List<String>.from(service['images'] ?? []);
     final rating = reviews.isNotEmpty
         ? reviews.map((e) => e['rating'] as num).reduce((a, b) => a + b) / reviews.length
         : 0.0;
@@ -58,7 +60,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildImageGallery(imageBase64List),
+            _buildImageGallery(imageList),
             const SizedBox(height: 20),
             Text(
               service['title'],
@@ -71,7 +73,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              "Giá: ${NumberFormat("#,##0", "vi_VN").format(service['price'])} đ",
+              "Giá: ${NumberFormat("#,##0", "vi_VN").format(parsedPrice.round())} đ",
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -89,7 +91,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             if (reviews.isEmpty)
               const Text("Chưa có đánh giá nào", style: TextStyle(color: Colors.grey))
             else
-              ...reviews.map((review) => _buildReviewCard(review)).toList(),
+              ...reviews.map(_buildReviewCard).toList(),
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
@@ -112,8 +114,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     );
   }
 
-  Widget _buildImageGallery(List<String> base64Images) {
-    if (base64Images.isEmpty) {
+  Widget _buildImageGallery(List<String> images) {
+    if (images.isEmpty) {
       return const Center(
         child: Icon(Icons.image_not_supported, size: 100, color: Colors.grey),
       );
@@ -123,26 +125,43 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
       height: 180,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        itemCount: base64Images.length,
+        itemCount: images.length,
         separatorBuilder: (_, __) => const SizedBox(width: 12),
         itemBuilder: (context, index) {
-          try {
-            final bytes = base64Decode(base64Images[index]);
-            return ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.memory(
-                bytes,
-                width: 280,
-                height: 180,
-                fit: BoxFit.cover,
-              ),
-            );
-          } catch (_) {
-            return const Icon(Icons.broken_image, size: 60);
-          }
+          final image = images[index];
+          final isBase64 = image.startsWith("data:image/");
+
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: isBase64
+                ? _buildBase64Image(image)
+                : Image.network(
+              image,
+              width: 280,
+              height: 180,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) =>
+              const Icon(Icons.broken_image, size: 60),
+            ),
+          );
         },
       ),
     );
+  }
+
+  Widget _buildBase64Image(String imageData) {
+    try {
+      final base64Str = imageData.split(',').last;
+      final bytes = base64Decode(base64Str);
+      return Image.memory(
+        bytes,
+        width: 280,
+        height: 180,
+        fit: BoxFit.cover,
+      );
+    } catch (_) {
+      return const Icon(Icons.broken_image, size: 60);
+    }
   }
 
   Widget _buildRatingStars(double rating) {

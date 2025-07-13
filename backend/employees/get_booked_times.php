@@ -4,7 +4,7 @@ header("Content-Type: application/json; charset=UTF-8");
 require_once("../db.php");
 
 $employeeId = isset($_GET['employee_id']) ? intval($_GET['employee_id']) : 0;
-$date = isset($_GET['date']) ? $_GET['date'] : date("Y-m-d"); // nếu không truyền thì mặc định hôm nay
+$date = isset($_GET['date']) ? $_GET['date'] : date("Y-m-d");
 
 if ($employeeId <= 0) {
     echo json_encode(["error" => "Thiếu employee_id"]);

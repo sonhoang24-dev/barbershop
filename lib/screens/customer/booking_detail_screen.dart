@@ -24,7 +24,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   double? _rating;
   final TextEditingController _feedbackController = TextEditingController();
   List<String> serviceImages = [];
-  bool _isReviewSubmitted = false; // Theo dõi trạng thái đã gửi đánh giá
+  bool _isReviewSubmitted = false;
 
   @override
   void initState() {
@@ -35,50 +35,78 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   }
 
   Future<void> _loadServiceImages() async {
-    final res = await http.get(Uri.parse(
-        "http://10.0.2.2/barbershop/backend/services/get_images.php?service_id=${booking['service_id']}"));
-    if (res.statusCode == 200) {
-      final data = jsonDecode(res.body);
-      setState(() {
-        serviceImages = List<String>.from(data.map((e) => e['image'].toString()));
-      });
-    } else {
-      print('Error loading images: Status ${res.statusCode}, Body: ${res.body}');
+    try {
+      final res = await http.get(Uri.parse(
+          "http://10.0.2.2/barbershop/backend/services/get_images.php?service_id=${booking['service_id']}"));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        setState(() {
+          serviceImages = List<String>.from(data.map((e) => e['image'].toString()));
+        });
+      } else {
+        print('Error loading images: Status ${res.statusCode}, Body: ${res.body}');
+      }
+    } catch (e) {
+      print('Exception loading images: $e');
     }
   }
 
   Future<void> _loadReview() async {
-    final review = await ReviewService.getReviewByBooking(booking['id']);
-    print("📥 Review loaded: $review");
+    try {
+      final review = await ReviewService.getReviewByBooking(booking['id']);
+      if (review != null) {
+        setState(() {
+          final rawRating = review['rating'];
+          if (rawRating is num && rawRating >= 0 && rawRating <= 5) {
+            _rating = rawRating.toDouble();
+          } else {
+            _rating = 0.0;
+          }
+          _feedbackController.text = review['feedback'] ?? '';
+          booking['rating'] = _rating;
+          booking['feedback'] = review['feedback'];
+          _isReviewSubmitted = true;
+        });
 
-    if (review != null) {
-      setState(() {
-        _rating = (review['rating'] as num).toDouble();
-        _feedbackController.text = review['feedback'] ?? '';
-        booking['rating'] = _rating;
-        booking['feedback'] = review['feedback'];
-        _isReviewSubmitted = true;
-      });
-
-      // Cập nhật lại vào SharedPreferences nếu cần
-      final prefs = await SharedPreferences.getInstance();
-      final List<String> stored = prefs.getStringList('bookings') ?? [];
-      stored[widget.bookingIndex] = jsonEncode(booking);
-      await prefs.setStringList('bookings', stored);
+        final prefs = await SharedPreferences.getInstance();
+        final List<String> stored = prefs.getStringList('bookings') ?? [];
+        if (widget.bookingIndex >= 0 && widget.bookingIndex < stored.length) {
+          stored[widget.bookingIndex] = jsonEncode(booking);
+          await prefs.setStringList('bookings', stored);
+        } else {
+          print("⚠ bookingIndex invalid in _loadReview: ${widget.bookingIndex}, total: ${stored.length}");
+        }
+      }
+    } catch (e) {
+      print('Error loading review: $e');
     }
   }
-
 
   Future<void> _cancelBooking() async {
     final prefs = await SharedPreferences.getInstance();
     final List<String> stored = prefs.getStringList('bookings') ?? [];
-    booking['status'] = "Đã huỷ";
-    stored[widget.bookingIndex] = jsonEncode(booking);
-    await prefs.setStringList('bookings', stored);
+    setState(() {
+      booking['status'] = "Đã huỷ";
+    });
+    if (widget.bookingIndex >= 0 && widget.bookingIndex < stored.length) {
+      stored[widget.bookingIndex] = jsonEncode(booking);
+      await prefs.setStringList('bookings', stored);
+    } else {
+      print("⚠ bookingIndex invalid in _cancelBooking: ${widget.bookingIndex}, total: ${stored.length}");
+    }
     if (context.mounted) Navigator.pop(context, true);
   }
 
   Future<void> _saveReview() async {
+    if (_rating == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Vui lòng chọn số sao để đánh giá!")),
+        );
+      }
+      return;
+    }
+
     try {
       final prefs = await SharedPreferences.getInstance();
       final userId = prefs.getInt('id');
@@ -97,10 +125,13 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         _isReviewSubmitted = true;
       });
 
-      // Cập nhật vào SharedPreferences
       final List<String> stored = prefs.getStringList('bookings') ?? [];
-      stored[widget.bookingIndex] = jsonEncode(booking);
-      await prefs.setStringList('bookings', stored);
+      if (widget.bookingIndex >= 0 && widget.bookingIndex < stored.length) {
+        stored[widget.bookingIndex] = jsonEncode(booking);
+        await prefs.setStringList('bookings', stored);
+      } else {
+        print("⚠ bookingIndex invalid in _saveReview: ${widget.bookingIndex}, total: ${stored.length}");
+      }
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -116,7 +147,9 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     }
   }
 
-  bool get canReview => booking['status'] == "Hoàn thành" && booking['rating'] == null;
+  bool get canReview =>
+      booking['status'] == "Đã hoàn thành" &&
+          (booking['rating'] == null || booking['rating'] is! num);
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
@@ -132,16 +165,31 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     );
   }
 
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'Chờ xác nhận':
+        return Colors.orange;
+      case 'Đã xác nhận':
+        return Colors.blue;
+      case 'Đang thực hiện':
+        return Colors.purple;
+      case 'Đã hoàn thành':
+        return Colors.green;
+      case 'Đã huỷ':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final extras = (booking['extras'] as List<dynamic>?)?.join(', ') ?? '';
     final canEdit = booking['status'] == "Chờ xác nhận";
+    final safeRating = (_rating ?? 0).clamp(0, 5).toInt();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Chi tiết lịch đặt"),
-        backgroundColor: Colors.teal,
-      ),
+      appBar: AppBar(title: const Text("Chi tiết lịch đặt"), backgroundColor: Colors.teal),
       body: Container(
         color: Colors.grey[100],
         child: Padding(
@@ -160,10 +208,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                         "http://10.0.2.2/barbershop/backend/${serviceImages[index]}",
                         width: 200,
                         fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) {
-                          print('Error loading image: $error');
-                          return const Icon(Icons.error, color: Colors.red);
-                        },
+                        errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: Colors.red),
                       ),
                     ),
                   ),
@@ -174,13 +219,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.shade300,
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    )
-                  ],
+                  boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 6, offset: const Offset(0, 2))],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -190,11 +229,22 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                     _buildInfoRow("Giờ", booking['time']),
                     _buildInfoRow("Nhân viên", booking['employee']),
                     if (extras.isNotEmpty) _buildInfoRow("Dịch vụ thêm", extras),
-                    _buildInfoRow(
-                        "Tổng tiền",
-                        "${NumberFormat('#,###', 'vi_VN').format(double.tryParse(booking['total'].toString()) ?? 0)} đ"
+                    _buildInfoRow("Tổng tiền", "${NumberFormat('#,###', 'vi_VN').format(double.tryParse(booking['total'].toString()) ?? 0)} đ"),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        children: [
+                          const Text("Trạng thái:", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.teal)),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              booking['status'] ?? 'Không xác định',
+                              style: TextStyle(color: _getStatusColor(booking['status'] ?? ''), fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    _buildInfoRow("Trạng thái", booking['status']),
                     if (booking['rating'] != null)
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,8 +255,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                         ],
                       ),
                     const Divider(height: 24),
-                    const Text("Thông tin khách hàng",
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
+                    const Text("Thông tin khách hàng", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
                     const SizedBox(height: 8),
                     _buildInfoRow("Họ tên", booking['customer_name'] ?? ""),
                     _buildInfoRow("SĐT", booking['customer_phone'] ?? ""),
@@ -226,17 +275,11 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                           title: const Text("Xác nhận huỷ lịch"),
                           content: const Text("Bạn có chắc muốn huỷ lịch này không?"),
                           actions: [
-                            TextButton(
-                              child: const Text("Không"),
-                              onPressed: () => Navigator.pop(context),
-                            ),
-                            TextButton(
-                              child: const Text("Huỷ lịch", style: TextStyle(color: Colors.red)),
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _cancelBooking();
-                              },
-                            ),
+                            TextButton(child: const Text("Không"), onPressed: () => Navigator.pop(context)),
+                            TextButton(child: const Text("Huỷ lịch", style: TextStyle(color: Colors.red)), onPressed: () {
+                              Navigator.pop(context);
+                              _cancelBooking();
+                            }),
                           ],
                         ),
                       );
@@ -248,112 +291,96 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                     ),
                   ),
                 ),
-              if (canReview) ...[
-                const SizedBox(height: 32),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("Đánh giá dịch vụ",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: List.generate(5, (i) => IconButton(
-                          icon: Icon(
-                            i < (_rating ?? 0) ? Icons.star : Icons.star_border,
-                            color: Colors.amber,
-                          ),
-                          onPressed: () => setState(() => _rating = (i + 1).toDouble()),
-                        )),
-                      ),
-                      TextField(
-                        controller: _feedbackController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: "Góp ý thêm",
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.center,
-                        child: ElevatedButton.icon(
-                          icon: const Icon(Icons.check_circle),
-                          label: const Text("Gửi đánh giá"),
-                          onPressed: _saveReview,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.teal,
-                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ] else if (_isReviewSubmitted) ...[
-                const SizedBox(height: 32),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.shade300,
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      )
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text("Đánh giá dịch vụ",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: List.generate(5, (i) => Icon(
-                          i < (_rating ?? 0) ? Icons.star : Icons.star_border,
-                          color: Colors.amber,
-                        )),
-                      ),
-                      if (_feedbackController.text.isNotEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            _feedbackController.text,
-                            style: const TextStyle(color: Colors.black87),
-                          ),
-                        ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.center,
-                        child: const Text(
-                          "Đã đánh giá",
-                          style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              if (canReview)
+                _buildReviewForm(safeRating)
+              else if (_isReviewSubmitted)
+                _buildReviewResult(safeRating),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildReviewForm(int safeRating) {
+    return Column(
+      children: [
+        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 6, offset: const Offset(0, 2))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Đánh giá dịch vụ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
+              const SizedBox(height: 8),
+              Row(
+                children: List.generate(5, (i) => IconButton(
+                  icon: Icon(i < safeRating ? Icons.star : Icons.star_border, color: Colors.amber),
+                  onPressed: () => setState(() => _rating = (i + 1).toDouble()),
+                )),
+              ),
+              TextField(
+                controller: _feedbackController,
+                maxLines: 3,
+                decoration: const InputDecoration(labelText: "Góp ý thêm", border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.center,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.check_circle),
+                  label: const Text("Gửi đánh giá"),
+                  onPressed: _saveReview,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildReviewResult(int safeRating) {
+    return Column(
+      children: [
+        const SizedBox(height: 32),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 6, offset: const Offset(0, 2))],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text("Đánh giá dịch vụ", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
+              const SizedBox(height: 8),
+              Row(children: List.generate(5, (i) => Icon(i < safeRating ? Icons.star : Icons.star_border, color: Colors.amber))),
+              if (_feedbackController.text.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(_feedbackController.text, style: const TextStyle(color: Colors.black87)),
+                ),
+              const SizedBox(height: 16),
+              const Align(
+                alignment: Alignment.center,
+                child: Text("Đã đánh giá", style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

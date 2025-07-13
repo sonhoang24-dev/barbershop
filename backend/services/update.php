@@ -11,8 +11,6 @@ $description = $_POST['description'] ?? '';
 $price = isset($_POST['price']) ? floatval($_POST['price']) : 0;
 $extras = isset($_POST['extras']) ? json_decode($_POST['extras'], true) : [];
 
-error_log("Received (update): id=$id, name=$name, price=$price, extras=" . json_encode($extras));
-
 if ($id === null || empty($name) || $price <= 0) {
     echo json_encode(['success' => false, 'message' => 'ID, tên và giá phải hợp lệ']);
     exit;
@@ -23,6 +21,7 @@ try {
     $stmt = $conn->prepare("UPDATE services SET name=?, description=?, price=? WHERE id=?");
     $stmt->bind_param("ssdi", $name, $description, $price, $id);
     $stmt->execute();
+
     $conn->query("DELETE FROM extra_services WHERE main_service_id = $id");
 
     $stmtExtra = $conn->prepare("INSERT INTO extra_services (main_service_id, name, price) VALUES (?, ?, ?)");
@@ -36,12 +35,14 @@ try {
     }
 
     if (!empty($_FILES['images'])) {
+        $stmtImg = $conn->prepare("INSERT INTO service_images (service_id, image) VALUES (?, ?)");
         foreach ($_FILES['images']['tmp_name'] as $index => $tmpName) {
             if (is_uploaded_file($tmpName)) {
-                $filename = uniqid() . '_' . basename($_FILES['images']['name'][$index]);
-                $uploadDir = '../uploads/';
-                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-                move_uploaded_file($tmpName, $uploadDir . $filename);
+                $data = file_get_contents($tmpName);
+                $null = NULL;
+                $stmtImg->bind_param("ib", $id, $null);
+                $stmtImg->send_long_data(1, $data);
+                $stmtImg->execute();
             }
         }
     }
@@ -50,6 +51,6 @@ try {
     echo json_encode(['success' => true, 'message' => 'Cập nhật thành công']);
 } catch (Exception $e) {
     $conn->rollback();
-    error_log("Error (update): " . $e->getMessage());
     echo json_encode(['success' => false, 'message' => 'Lỗi: ' . $e->getMessage()]);
 }
+?>
