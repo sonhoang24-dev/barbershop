@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
+import '../login_screen.dart'; // Import màn đăng nhập
 
 class UpdateProfileAdminScreen extends StatefulWidget {
   const UpdateProfileAdminScreen({super.key});
@@ -98,6 +99,17 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
     }
   }
 
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear();
+    if (!mounted) return;
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginScreen()),
+          (route) => false,
+    );
+  }
+
   Widget _buildAvatarPreview() {
     ImageProvider? image;
 
@@ -165,6 +177,13 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
         systemOverlayStyle: SystemUiOverlayStyle.light,
         title: const Text("Cập nhật hồ sơ quản trị",
             style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: "Đăng xuất",
+            onPressed: _logout,
+          )
+        ],
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(

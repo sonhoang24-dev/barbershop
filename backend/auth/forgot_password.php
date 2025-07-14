@@ -1,45 +1,71 @@
 <?php
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+require '../PHPMailer/src/Exception.php';
+require '../PHPMailer/src/PHPMailer.php';
+require '../PHPMailer/src/SMTP.php';
+require_once('../db.php');
+
 header("Access-Control-Allow-Origin: *");
-header("Content-Type: application/json; charset=UTF-8");
-header("Access-Control-Allow-Methods: POST");
+header("Content-Type: application/json");
 
-// Kiểm tra phương thức
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    echo json_encode(["success" => false, "message" => "Chỉ hỗ trợ phương thức POST"]);
-    exit;
-}
-
-// Lấy dữ liệu từ Flutter
 $data = json_decode(file_get_contents("php://input"), true);
-$email = trim($data["email"] ?? '');
+$email = $data['email'] ?? '';
 
 if (empty($email)) {
     echo json_encode(["success" => false, "message" => "Vui lòng nhập email"]);
     exit;
 }
 
-// Kết nối CSDL
-require_once("../db.php");
-
-// Kiểm tra email có tồn tại không
-$stmt = $conn->prepare("SELECT name, password FROM users WHERE email = ?");
+// Kiểm tra tài khoản
+$stmt = $conn->prepare("SELECT id, name FROM users WHERE email = ?");
 $stmt->bind_param("s", $email);
 $stmt->execute();
 $result = $stmt->get_result();
+$user = $result->fetch_assoc();
 
-if ($row = $result->fetch_assoc()) {
-    $to = $email;
-    $subject = "Khôi phục mật khẩu - BarberShop App";
-    $message = "Xin chào {$row['name']},\n\nMật khẩu của bạn là: {$row['password']}\n\nVui lòng đổi lại mật khẩu sau khi đăng nhập.";
-    $headers = "From: no-reply@barbershop.com";
-
-    if (mail($to, $subject, $message, $headers)) {
-        echo json_encode(["success" => true, "message" => "Mật khẩu đã được gửi đến email của bạn"]);
-    } else {
-        echo json_encode(["success" => false, "message" => "Không thể gửi email. Hãy thử lại sau."]);
-    }
-} else {
-    echo json_encode(["success" => false, "message" => "Email không tồn tại"]);
+if (!$user) {
+    echo json_encode(["success" => false, "message" => "Tài khoản không tồn tại"]);
+    exit;
 }
 
-$conn->close();
+// Tạo mật khẩu mới
+$newPassword = substr(str_shuffle('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'), 0, 8);
+$hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+
+// Cập nhật mật khẩu
+$update = $conn->prepare("UPDATE users SET password = ? WHERE id = ?");
+$update->bind_param("si", $hashedPassword, $user['id']);
+$update->execute();
+
+// Gửi email
+$mail = new PHPMailer(true);
+try {
+    $mail->isSMTP();
+    $mail->Host = 'smtp.gmail.com';
+    $mail->SMTPAuth = true;
+    $mail->Username = 'barbershopdht.ct@gmail.com';
+    $mail->Password = 'vlmk fnnd leyc pngg';
+    $mail->SMTPSecure = 'tls';
+    $mail->Port = 587;
+
+    $mail->setFrom('barbershopdht.ct@gmail.com', 'Barbershop System');
+    $mail->addAddress($email, $user['name']);
+    $mail->isHTML(true);
+    $mail->CharSet = 'UTF-8';
+    $mail->Encoding = 'base64';
+    $mail->Subject = 'Khôi phục mật khẩu - Barbershop';
+    $mail->Body = "
+        <p>Xin chào <strong>{$user['name']}</strong>,</p>
+        <p>Mật khẩu mới của bạn là: <strong style='color:green'>{$newPassword}</strong></p>
+        <p>Sau khi đăng nhập, vui lòng đổi mật khẩu.</p>
+        <hr><p style='font-size:12px;color:gray'>Đây là email tự động, vui lòng không phản hồi.</p>
+    ";
+
+    $mail->send();
+    echo json_encode(["success" => true, "message" => "Đã gửi mật khẩu mới đến email của bạn."]);
+} catch (Exception $e) {
+    echo json_encode(["success" => false, "message" => "Không thể gửi email. Lỗi: {$mail->ErrorInfo}"]);
+}
+?>

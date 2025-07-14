@@ -20,12 +20,26 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController();
   bool _loading = false;
   String? _error;
+  bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_onInputChanged);
+    _passwordController.addListener(_onInputChanged);
+  }
+
+  bool get _isFilled =>
+      _emailController.text.trim().isNotEmpty &&
+          _passwordController.text.trim().isNotEmpty;
+
+  void _onInputChanged() => setState(() {});
 
   Future<void> _login() async {
     final email = _emailController.text.trim();
     final password = _passwordController.text.trim();
 
-    if (email.isEmpty || password.isEmpty) {
+    if (!_isFilled) {
       setState(() => _error = "Vui lòng nhập email và mật khẩu.");
       return;
     }
@@ -55,7 +69,6 @@ class _LoginScreenState extends State<LoginScreen> {
         if (user['gender'] != null) await prefs.setString('gender', user['gender']);
         if (user['avatar'] != null) await prefs.setString('avatar', user['avatar']);
 
-        // Điều hướng theo phân quyền
         if (user['role'] == 'admin') {
           Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboard()));
         } else {
@@ -74,39 +87,47 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xff1e1e2c),
+      backgroundColor: const Color(0xFFB2DFDB), // teal nhạt
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.account_circle, size: 100, color: Colors.white),
-              const SizedBox(height: 24),
+              const CircleAvatar(
+                radius: 50,
+                backgroundImage: NetworkImage(
+                    'https://down-my.img.susercontent.com/file/e4ac35108840c7dd9ab48e25feb09ff4'),
+                backgroundColor: Colors.transparent,
+              ),
+              const SizedBox(height: 16),
               const Text(
                 "Đăng nhập hệ thống",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white),
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal),
               ),
               const SizedBox(height: 32),
               _buildInputField(_emailController, Icons.email, "Email", false),
               const SizedBox(height: 16),
-              _buildInputField(_passwordController, Icons.lock, "Mật khẩu", true),
+              _buildPasswordField(),
               const SizedBox(height: 16),
               if (_error != null)
-                Text(_error!, style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),
+                Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                ),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
-                  onPressed: _loading ? null : _login,
+                  onPressed: _loading || !_isFilled ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: _isFilled ? Colors.teal[800] : Colors.teal[300],
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                   child: _loading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Đăng nhập", style: TextStyle(fontSize: 18)),
+                      : const Text("Đăng nhập", style: TextStyle(fontSize: 18, color: Colors.white)),
                 ),
               ),
               const SizedBox(height: 12),
@@ -114,14 +135,14 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   TextButton(
-                    child: const Text("Đăng ký", style: TextStyle(color: Colors.white)),
+                    child: const Text("Đăng ký", style: TextStyle(color: Colors.teal)),
                     onPressed: () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
                     },
                   ),
-                  const Text("|", style: TextStyle(color: Colors.white70)),
+                  const Text("|", style: TextStyle(color: Colors.teal)),
                   TextButton(
-                    child: const Text("Quên mật khẩu?", style: TextStyle(color: Colors.white)),
+                    child: const Text("Quên mật khẩu?", style: TextStyle(color: Colors.teal)),
                     onPressed: () {
                       Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()));
                     },
@@ -139,15 +160,46 @@ class _LoginScreenState extends State<LoginScreen> {
     return TextField(
       controller: controller,
       obscureText: obscure,
-      style: const TextStyle(color: Colors.white),
+      obscuringCharacter: '*',
+      style: const TextStyle(color: Colors.black87),
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.white),
+        prefixIcon: Icon(icon, color: Colors.teal[700]),
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.white70),
+        hintStyle: const TextStyle(color: Colors.black45),
         filled: true,
-        fillColor: Colors.white.withOpacity(0.1),
+        fillColor: Colors.white,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
       ),
     );
+  }
+
+  Widget _buildPasswordField() {
+    return TextField(
+      controller: _passwordController,
+      obscureText: _obscurePassword,
+      obscuringCharacter: '*',
+      enableSuggestions: false,
+      autocorrect: false,
+      style: const TextStyle(color: Colors.black87),
+      decoration: InputDecoration(
+        prefixIcon: Icon(Icons.lock, color: Colors.teal[700]),
+        suffixIcon: IconButton(
+          icon: Icon(
+            _obscurePassword ? Icons.visibility_off : Icons.visibility,
+            color: Colors.teal,
+          ),
+          onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+        ),
+        hintText: "Mật khẩu",
+        hintStyle: const TextStyle(color: Colors.black45),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+
   }
 }

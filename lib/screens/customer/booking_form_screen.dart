@@ -33,7 +33,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     service = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
     final rawPrice = service['price'];
     final parsedPrice = double.tryParse(rawPrice.toString()) ?? 0.0;
-    print("Service price raw: $rawPrice, parsed: $parsedPrice"); // Debug: Kiểm tra giá thô và sau parse
     _loadEmployees();
     _loadExtras();
     _loadImages();
@@ -54,12 +53,20 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       setState(() {
-        extraServices = data.map<Map<String, dynamic>>((e) => {
-          "id": e['id'],
-          "name": e['name'] ?? '',
-          "price": (double.tryParse(e['price'].toString()) ?? 0).round(),
-          "selected": false,
+        // Merge new data with existing selections
+        final newExtras = data.map<Map<String, dynamic>>((e) {
+          final existing = extraServices.firstWhere(
+                (es) => es['id'] == e['id'],
+            orElse: () => {'id': e['id'], 'selected': false},
+          );
+          return {
+            "id": e['id'],
+            "name": e['name'] ?? '',
+            "price": (double.tryParse(e['price'].toString()) ?? 0).round(),
+            "selected": existing['selected'] ?? false,
+          };
         }).toList();
+        extraServices = newExtras;
       });
     }
   }
@@ -80,6 +87,13 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       final data = jsonDecode(res.body);
       setState(() {
         bookedTimes = List<String>.from(data);
+        // Regenerate time slots without affecting extraServices
+        final selectedEmp = employees.firstWhere(
+              (e) => int.tryParse(e['id'].toString()) == employeeId,
+          orElse: () => {'working_hours': '08:00-17:00'},
+        );
+        timeSlots = _generateTimeSlots(selectedEmp['working_hours'] ?? '08:00-17:00');
+        selectedTime = null; // Reset time slot selection
       });
     }
   }
@@ -113,23 +127,18 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   int _calculateTotal() {
-    // Parse giá từ service['price'] thành số thực, sau đó làm tròn
     double basePrice = double.tryParse(service['price'].toString()) ?? 0.0;
     int total = basePrice.round();
-    print("Base price raw: ${service['price']}, parsed: $basePrice, total: $total"); // Debug: Kiểm tra giá
     for (var extra in extraServices) {
       if (extra['selected'] == true) {
         total += (extra['price'] as int);
-        print("Added extra: ${extra['name']} - ${extra['price']}"); // Debug: Kiểm tra giá dịch vụ thêm
       }
     }
-    return total < 0 ? 0 : total; // Tránh giá trị âm
+    return total < 0 ? 0 : total;
   }
 
   String _formatCurrency(dynamic amount) {
-    // Parse thành số thực, làm tròn và định dạng chỉ số nguyên
     double parsedAmount = double.tryParse(amount.toString()) ?? 0.0;
-    print("Formatted amount raw: $amount, parsed: $parsedAmount"); // Debug: Kiểm tra giá trị
     return NumberFormat("#,##0", "vi_VN").format(parsedAmount.round());
   }
 

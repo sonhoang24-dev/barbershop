@@ -21,6 +21,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descController;
   late TextEditingController _priceController;
+  String _selectedStatus = 'Đang hoạt động'; // Mặc định trạng thái
 
   List<XFile> _selectedImages = [];
   List<String> _existingImages = [];
@@ -36,7 +37,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
           ? NumberFormat.decimalPattern('vi_VN').format(widget.service!.price)
           : '',
     );
-
+    _selectedStatus = widget.service?.status ?? 'Đang hoạt động'; // Khởi tạo trạng thái từ service
     _initializeExtras();
     print('Initialized extras: $_extras'); // Debug log
   }
@@ -110,8 +111,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
         name: e['name']!,
         price: parsedPrice,
       );
-    })
-        .toList();
+    }).toList();
 
     if (extrasList.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -120,7 +120,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
       return;
     }
 
-    print('Sending: {name: $name, price: $price, extras: ${extrasList.map((e) => {'name': e.name, 'price': e.price, 'mainServiceId': e.mainServiceId}).toList()}, serviceId: ${isUpdate ? widget.service!.id : null}}');
+    print('Sending: {name: $name, price: $price, status: $_selectedStatus, extras: ${extrasList.map((e) => {'name': e.name, 'price': e.price, 'mainServiceId': e.mainServiceId}).toList()}, serviceId: ${isUpdate ? widget.service!.id : null}}');
     final result = await ApiService.addOrUpdateService(
       name: name,
       description: _descController.text.trim(),
@@ -128,6 +128,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
       images: _selectedImages,
       serviceId: isUpdate ? widget.service!.id : null,
       extras: extrasList,
+      status: _selectedStatus, // Gửi trạng thái lên API
     );
 
     if (context.mounted) {
@@ -262,6 +263,37 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: _selectedStatus,
+                        decoration: InputDecoration(
+                          labelText: 'Trạng thái *',
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          filled: true,
+                          fillColor: Colors.grey[100],
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'Đang hoạt động',
+                            child: Text('Đang hoạt động', style: TextStyle(color: Colors.green)),
+                          ),
+                          DropdownMenuItem(
+                            value: 'Ngừng hoạt động',
+                            child: Text('Ngừng hoạt động', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setState(() => _selectedStatus = value);
+                          }
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Vui lòng chọn trạng thái';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
                       TextFormField(
                         controller: _descController,
                         maxLines: 4,
@@ -306,11 +338,12 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 16),
-                      if (_extras.isNotEmpty) // Đảm bảo danh sách luôn hiển thị nếu có dữ liệu
+                      if (_extras.isNotEmpty)
                         ..._extras.asMap().entries.map((entry) {
                           final index = entry.key;
                           final extra = entry.value;
-                          final priceController = extra['priceController'] as TextEditingController? ?? (extra['priceController'] = TextEditingController(text: extra['price'] ?? NumberFormat.decimalPattern('vi_VN').format(0.0))) as TextEditingController;
+                          final priceController = extra['priceController'] as TextEditingController? ??
+                              (extra['priceController'] = TextEditingController(text: extra['price'] ?? NumberFormat.decimalPattern('vi_VN').format(0.0))) as TextEditingController;
                           return Column(
                             children: [
                               Row(

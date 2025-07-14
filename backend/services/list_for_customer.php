@@ -15,7 +15,8 @@ SELECT
 FROM services s
 LEFT JOIN bookings b ON s.id = b.service_id
 LEFT JOIN reviews r ON b.id = r.booking_id
-GROUP BY s.id
+WHERE s.status = 'Đang hoạt động'
+GROUP BY s.id;
 ";
 
 $result = $conn->query($sql);

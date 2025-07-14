@@ -23,6 +23,7 @@ class Service {
   final double price;
   final List<String> images;
   final double rating;
+  final String status; // Thêm status
   final List<ExtraService> extras;
 
   Service({
@@ -32,6 +33,7 @@ class Service {
     required this.price,
     required this.images,
     required this.rating,
+    required this.status,
     this.extras = const [],
   });
 
@@ -43,6 +45,7 @@ class Service {
       price: parseDouble(json['price']) ?? 0.0,
       images: (json['images'] as List?)?.map((e) => e.toString()).toList() ?? [],
       rating: parseDouble(json['rating']) ?? 0.0,
+      status: json['status']?.toString() ?? '', // map status từ json
       extras: (json['extras'] as List?)
           ?.map((e) => ExtraService.fromJson(e as Map<String, dynamic>))
           .toList() ??
@@ -58,6 +61,7 @@ class Service {
       'price': price,
       'images': images,
       'rating': rating,
+      'status': status,
       'extras': extras.map((e) => e.toMap()).toList(),
     };
   }

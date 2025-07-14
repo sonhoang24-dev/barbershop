@@ -9,6 +9,7 @@ $id = isset($_POST['id']) ? intval($_POST['id']) : null;
 $name = $_POST['name'] ?? '';
 $description = $_POST['description'] ?? '';
 $price = isset($_POST['price']) ? floatval($_POST['price']) : 0;
+$status = $_POST['status'] ?? 'Đang hoạt động'; // nhận status từ frontend, mặc định là Đang hoạt động
 $extras = isset($_POST['extras']) ? json_decode($_POST['extras'], true) : [];
 
 if ($id === null || empty($name) || $price <= 0) {
@@ -18,12 +19,14 @@ if ($id === null || empty($name) || $price <= 0) {
 
 $conn->begin_transaction();
 try {
-    $stmt = $conn->prepare("UPDATE services SET name=?, description=?, price=? WHERE id=?");
-    $stmt->bind_param("ssdi", $name, $description, $price, $id);
+    $stmt = $conn->prepare("UPDATE services SET name=?, description=?, price=?, status=? WHERE id=?");
+    $stmt->bind_param("ssdsi", $name, $description, $price, $status, $id);
     $stmt->execute();
 
+    // Xoá toàn bộ extra cũ
     $conn->query("DELETE FROM extra_services WHERE main_service_id = $id");
 
+    // Thêm lại extra
     $stmtExtra = $conn->prepare("INSERT INTO extra_services (main_service_id, name, price) VALUES (?, ?, ?)");
     foreach ($extras as $extra) {
         $extraName = $extra['name'] ?? '';
@@ -34,6 +37,7 @@ try {
         }
     }
 
+    // Thêm ảnh mới nếu có
     if (!empty($_FILES['images'])) {
         $stmtImg = $conn->prepare("INSERT INTO service_images (service_id, image) VALUES (?, ?)");
         foreach ($_FILES['images']['tmp_name'] as $index => $tmpName) {

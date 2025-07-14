@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:barbershop_app/screens/admin/review_list_admin.dart';
 import 'manage_employees.dart';
 import 'manage_services.dart';
 import 'appointment_list_admin.dart';
@@ -72,6 +73,16 @@ class AdminDashboard extends StatelessWidget {
             ),
             _buildTile(
               context,
+              icon: Icons.reviews,
+              label: 'Xem đánh giá',
+              color: Colors.pinkAccent,
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ReviewListAdminScreen()),
+              ),
+            ),
+            _buildTile(
+              context,
               icon: Icons.bar_chart,
               label: 'Thống kê - báo cáo',
               color: Colors.deepPurple,
@@ -96,18 +107,20 @@ class AdminDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildTile(BuildContext context,
-      {required IconData icon,
+  Widget _buildTile(
+      BuildContext context, {
+        required IconData icon,
         required String label,
         required Color color,
-        required VoidCallback onTap}) {
+        required VoidCallback onTap,
+      }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [
+          boxShadow: const [
             BoxShadow(
               color: Colors.black12,
               blurRadius: 6,

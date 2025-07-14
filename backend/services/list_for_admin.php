@@ -10,6 +10,7 @@ SELECT
     s.name AS title,
     s.description,
     s.price,
+    s.status,
     IFNULL(AVG(r.rating), 0) AS rating
 FROM services s
 LEFT JOIN bookings b ON s.id = b.service_id
@@ -20,6 +21,7 @@ ORDER BY s.id DESC
 
 $res = $conn->query($sql);
 
+// Lấy danh sách hình ảnh
 $imageMap = [];
 $imgRes = $conn->query("SELECT service_id, image FROM service_images");
 while ($row = $imgRes->fetch_assoc()) {
@@ -33,6 +35,7 @@ $services = [];
 while ($row = $res->fetch_assoc()) {
     $sid = $row['id'];
 
+    // Lấy extra services
     $extras = [];
     $extraRes = $conn->query("SELECT id, name, price FROM extra_services WHERE main_service_id = $sid");
     while ($e = $extraRes->fetch_assoc()) {
@@ -48,6 +51,7 @@ while ($row = $res->fetch_assoc()) {
         "title" => $row['title'],
         "description" => $row['description'],
         "price" => (float)$row['price'],
+        "status" => $row['status'],
         "rating" => round((float)$row['rating'], 1),
         "images" => $imageMap[$sid] ?? [],
         "extras" => $extras,

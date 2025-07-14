@@ -17,8 +17,9 @@ if (empty($name) || $price <= 0) {
 
 $conn->begin_transaction();
 try {
-    $stmt = $conn->prepare("INSERT INTO services (name, description, price) VALUES (?, ?, ?)");
-    $stmt->bind_param("ssd", $name, $description, $price);
+    $status = 'Đang hoạt động'; // thêm trạng thái mặc định
+    $stmt = $conn->prepare("INSERT INTO services (name, description, price, status) VALUES (?, ?, ?, ?)");
+    $stmt->bind_param("ssds", $name, $description, $price, $status);
     $stmt->execute();
     $id = $stmt->insert_id;
 

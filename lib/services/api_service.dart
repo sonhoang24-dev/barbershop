@@ -89,6 +89,27 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('id') ?? 0;
   }
+  static Future<String?> forgotPassword(String email) async {
+    final url = Uri.parse("$baseUrl/auth/forgot_password.php");
+
+    try {
+      final res = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({'email': email}),
+      );
+
+      if (res.statusCode == 200 && res.body.isNotEmpty) {
+        final jsonData = jsonDecode(res.body);
+        return jsonData['message'];
+      }
+    } catch (e) {
+      return "Lỗi gửi yêu cầu: $e";
+    }
+
+    return "Đã xảy ra lỗi không xác định";
+  }
+
 
   // -------------------- SERVICES --------------------
 
@@ -121,6 +142,7 @@ class ApiService {
     required List<XFile> images,
     int? serviceId,
     required List<ExtraService> extras,
+    required String status,
   }) async {
     final uri = Uri.parse(serviceId == null
         ? '$baseUrl/services/add.php'
@@ -129,7 +151,8 @@ class ApiService {
     final request = http.MultipartRequest('POST', uri)
       ..fields['name'] = name
       ..fields['description'] = description
-      ..fields['price'] = price.toString();
+      ..fields['price'] = price.toString()
+      ..fields['status'] = status;
 
     if (serviceId != null) request.fields['id'] = serviceId.toString();
 
@@ -165,15 +188,41 @@ class ApiService {
 
   // -------------------- EMPLOYEES --------------------
 
-  static Future<List<Employee>> fetchEmployees() async {
-    final response = await http.get(Uri.parse('$baseUrl/employees/get_employee.php'));
-    if (response.statusCode == 200 && response.body.isNotEmpty) {
-      final jsonData = jsonDecode(response.body);
-      if (jsonData['success'] == true) {
-        return (jsonData['data'] as List).map((e) => Employee.fromJson(e)).toList();
+  static Future<List<Employee>> fetchEmployees({
+    String name = '',
+    String phone = '',
+    String status = '',
+  }) async {
+    try {
+      final queryParameters = {
+        if (name.isNotEmpty) 'name': name,
+        if (phone.isNotEmpty) 'phone': phone,
+        if (status.isNotEmpty) 'status': status,
+      };
+
+      final uri = Uri.parse('$baseUrl/employees/get_employee.php').replace(
+        queryParameters: queryParameters,
+      );
+
+      final response = await http.get(uri, headers: {
+        'Content-Type': 'application/json',
+      });
+
+      if (response.statusCode == 200 && response.body.isNotEmpty) {
+        final jsonData = jsonDecode(response.body);
+        if (jsonData['success'] == true) {
+          return (jsonData['data'] as List)
+              .map((e) => Employee.fromJson(e))
+              .toList();
+        } else {
+          throw Exception(jsonData['message'] ?? 'Không thể tải danh sách nhân viên');
+        }
+      } else {
+        throw Exception('Lỗi server: ${response.statusCode} - ${response.reasonPhrase}');
       }
+    } catch (e) {
+      throw Exception('Lỗi khi tải danh sách nhân viên: $e');
     }
-    return [];
   }
 
   static Future<bool> addEmployeeWithServices({
@@ -232,18 +281,58 @@ class ApiService {
     return [];
   }
 
+  Future<List<Employee>> searchEmployees(String name, String phone, String status) async {
+    final url = '$baseUrl/employees/search.php?name=$name&phone=$phone&status=$status';
+    final response = await http.get(Uri.parse(url));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['success']) {
+        return (data['data'] as List)
+            .map((json) => Employee.fromJson(json))
+            .toList();
+      } else {
+        throw Exception(data['error']);
+      }
+    } else {
+      throw Exception('Failed to load employees');
+    }
+  }
+
 // -------------------- BOOKINGS (ADMIN) --------------------
 
-  static Future<List<Booking>> getBookings() async {
-    final url = Uri.parse('$baseUrl/employees/admin_get_bookings.php');
-    final res = await http.get(url);
-    if (res.statusCode == 200 && res.body.isNotEmpty) {
-      final json = jsonDecode(res.body);
-      if (json['success'] == true && json['data'] != null) {
-        return (json['data'] as List).map((e) => Booking.fromJson(e)).toList();
+  static Future<List<Booking>> getBookings({String? search, String? status}) async {
+    try {
+      String url = '$baseUrl/employees/admin_get_bookings.php';
+      String queryString = '';
+      if (search != null && search.isNotEmpty) {
+        queryString += 'search=${Uri.encodeComponent(search)}';
       }
+      if (status != null && status.isNotEmpty && status != 'Tất cả') {
+        if (queryString.isNotEmpty) queryString += '&';
+        queryString += 'status=${Uri.encodeComponent(status)}';
+      }
+      if (queryString.isNotEmpty) {
+        url += '?$queryString';
+      }
+      print('Query string: $queryString');
+      print('Request URL: $url');
+      final res = await http.get(Uri.parse(url));
+      print('API response status: ${res.statusCode}, body: ${res.body}');
+      if (res.statusCode == 200 && res.body.isNotEmpty) {
+        final json = jsonDecode(res.body);
+        if (json['success'] == true && json['data'] != null) {
+          final bookings = (json['data'] as List).map((e) => Booking.fromJson(e)).toList();
+          print('Parsed bookings: ${bookings.map((b) => b.status).toList()}');
+          return bookings;
+        }
+        throw Exception(json['message'] ?? 'Không tải được danh sách lịch hẹn');
+      }
+      throw Exception('Lỗi server: ${res.statusCode}');
+    } catch (e) {
+      print('Error in getBookings: $e');
+      throw Exception('Lỗi kết nối API: $e');
     }
-    throw Exception('Không tải được danh sách lịch hẹn');
   }
 
   static Future<Booking> getBookingById(int id) async {

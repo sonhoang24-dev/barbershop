@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../home_screen.dart';
 import 'booking_list_screen.dart';
 import 'shop_info_screen.dart';
@@ -16,7 +15,7 @@ class CustomerHome extends StatefulWidget {
 
 class _CustomerHomeState extends State<CustomerHome> {
   late int _currentIndex;
-  String _userName = "Khách hàng";
+  String _userName = "customer";
 
   @override
   void initState() {
@@ -28,7 +27,7 @@ class _CustomerHomeState extends State<CustomerHome> {
   Future<void> _loadUserName() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _userName = prefs.getString('name') ?? 'Khách hàng';
+      _userName = prefs.getString('name') ?? 'customer';
     });
   }
 
