@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../services/api_service.dart';
-import '../login_screen.dart'; // Import màn đăng nhập
+import '../login_screen.dart';
 
 class UpdateProfileAdminScreen extends StatefulWidget {
   const UpdateProfileAdminScreen({super.key});
@@ -68,11 +68,9 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
           id: _userId,
           name: _nameController.text,
           email: _emailController.text,
-          phone: _phoneController.text,
+          phone:_phoneController.text,
           gender: _gender,
-          newPassword: _passwordController.text.isNotEmpty
-              ? _passwordController.text
-              : null,
+          newPassword: _passwordController.text.isNotEmpty ? _passwordController.text : null,
           avatarBase64: base64Avatar,
         );
 
@@ -175,8 +173,10 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         systemOverlayStyle: SystemUiOverlayStyle.light,
-        title: const Text("Cập nhật hồ sơ quản trị",
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+        title: const Text(
+          "Cập nhật hồ sơ quản trị",
+          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
@@ -198,6 +198,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
+        height: MediaQuery.of(context).size.height, // Đảm bảo chiếm toàn bộ chiều cao
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xff0f2027), Color(0xff203a43), Color(0xff2c5364)],
@@ -205,54 +206,56 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
             end: Alignment.bottomRight,
           ),
         ),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                children: [
-                  const SizedBox(height: 70),
-                  _buildAvatarPreview(),
-                  const SizedBox(height: 30),
-                  _buildTextField("Họ tên", _nameController),
-                  _buildTextField("Email", _emailController, validator: true),
-                  _buildTextField("Số điện thoại", _phoneController),
-                  DropdownButtonFormField<String>(
-                    value: _gender?.isNotEmpty == true ? _gender : null,
-                    decoration: _inputDecoration("Giới tính"),
-                    dropdownColor: Colors.grey[900],
-                    style: const TextStyle(color: Colors.white),
-                    items: const [
-                      DropdownMenuItem(value: "Nam", child: Text("Nam")),
-                      DropdownMenuItem(value: "Nữ", child: Text("Nữ")),
-                      DropdownMenuItem(value: "Khác", child: Text("Khác")),
-                    ],
-                    onChanged: (value) => setState(() => _gender = value),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildTextField("Mật khẩu mới (nếu đổi)", _passwordController, isPassword: true),
-                  const SizedBox(height: 30),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: _saveProfile,
-                      icon: const Icon(Icons.save),
-                      label: const Text("Lưu thay đổi"),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1E88E5),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        elevation: 3,
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            24,
+            MediaQuery.of(context).padding.top + 80, // Padding để tránh thanh trạng thái
+            24,
+            20,
+          ),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              children: [
+                _buildAvatarPreview(),
+                const SizedBox(height: 30),
+                _buildTextField("Họ tên", _nameController),
+                _buildTextField("Email", _emailController, validator: true),
+                _buildTextField("Số điện thoại", _phoneController),
+                DropdownButtonFormField<String>(
+                  value: _gender?.isNotEmpty == true ? _gender : null,
+                  decoration: _inputDecoration("Giới tính"),
+                  dropdownColor: Colors.grey[900],
+                  style: const TextStyle(color: Colors.white),
+                  items: const [
+                    DropdownMenuItem(value: "Nam", child: Text("Nam")),
+                    DropdownMenuItem(value: "Nữ", child: Text("Nữ")),
+                    DropdownMenuItem(value: "Khác", child: Text("Khác")),
+                  ],
+                  onChanged: (value) => setState(() => _gender = value),
+                ),
+                const SizedBox(height: 16),
+                _buildTextField("Mật khẩu mới (nếu đổi)", _passwordController, isPassword: true),
+                const SizedBox(height: 30),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _saveProfile,
+                    icon: const Icon(Icons.save),
+                    label: const Text("Lưu thay đổi"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF1E88E5),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                      textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
+                      elevation: 3,
                     ),
-                  )
-                ],
-              ),
+                  ),
+                )
+              ],
             ),
           ),
         ),

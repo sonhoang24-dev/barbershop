@@ -20,7 +20,7 @@ class ReviewService {
       }),
     );
 
-    print("📥 Server response: ${response.body}");
+    print("Server response: ${response.body}");
     final json = jsonDecode(response.body);
     if (json['success'] != true) throw Exception(json['message'] ?? "Gửi đánh giá thất bại");
   }

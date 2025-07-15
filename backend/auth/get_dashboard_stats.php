@@ -49,17 +49,20 @@ $result2 = $stmt2->get_result();
 $data2 = $result2 ? $result2->fetch_assoc() : ['total_customers' => 0];
 
 $sql3 = "
-    SELECT
-        s.name,
-        COUNT(b.id) AS count,
-        ROUND(AVG(r.rating), 1) AS average_rating
-    FROM bookings b
-    JOIN services s ON b.service_id = s.id
-    LEFT JOIN reviews r ON r.booking_id = b.id
-    WHERE b.date BETWEEN ? AND ? AND b.status = 'Đã hoàn thành'
-    GROUP BY s.id
-    ORDER BY count DESC
-    LIMIT 5
+SELECT
+    s.id AS service_id,
+    s.name AS service_name,
+    COUNT(r.id) AS review_count,
+    ROUND(AVG(r.rating), 1) AS average_rating
+FROM reviews r
+JOIN bookings b ON r.booking_id = b.id
+JOIN services s ON b.service_id = s.id
+WHERE r.rating IS NOT NULL
+  AND r.reviewed_at BETWEEN ? AND ?
+GROUP BY s.id, s.name
+HAVING COUNT(r.rating) > 0
+ORDER BY review_count DESC
+LIMIT 5;
 ";
 $stmt3 = $conn->prepare($sql3);
 if (!$stmt3) {

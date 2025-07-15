@@ -67,15 +67,6 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
           booking['feedback'] = review['feedback'];
           _isReviewSubmitted = true;
         });
-
-        final prefs = await SharedPreferences.getInstance();
-        final List<String> stored = prefs.getStringList('bookings') ?? [];
-        if (widget.bookingIndex >= 0 && widget.bookingIndex < stored.length) {
-          stored[widget.bookingIndex] = jsonEncode(booking);
-          await prefs.setStringList('bookings', stored);
-        } else {
-          print("⚠ bookingIndex invalid in _loadReview: ${widget.bookingIndex}, total: ${stored.length}");
-        }
       }
     } catch (e) {
       print('Error loading review: $e');
@@ -83,18 +74,46 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   }
 
   Future<void> _cancelBooking() async {
-    final prefs = await SharedPreferences.getInstance();
-    final List<String> stored = prefs.getStringList('bookings') ?? [];
-    setState(() {
-      booking['status'] = "Đã huỷ";
-    });
-    if (widget.bookingIndex >= 0 && widget.bookingIndex < stored.length) {
-      stored[widget.bookingIndex] = jsonEncode(booking);
-      await prefs.setStringList('bookings', stored);
-    } else {
-      print("⚠ bookingIndex invalid in _cancelBooking: ${widget.bookingIndex}, total: ${stored.length}");
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userId = prefs.getInt('id') ?? 0;
+      if (userId == 0) throw Exception("Không tìm thấy user_id");
+
+      final response = await http.post(
+        Uri.parse("http://10.0.2.2/barbershop/backend/employees/update_booking_status.php"),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "booking_id": booking['id'],
+          "status": "Đã huỷ",
+          "user_id": userId,
+        }),
+      );
+
+      final result = jsonDecode(response.body);
+      if (response.statusCode == 200 && result['success'] == true) {
+        setState(() {
+          booking['status'] = "Đã huỷ";
+        });
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Đã hủy lịch thành công.")),
+          );
+          Navigator.pop(context, {
+            'updated': true,
+            'new_status': 'Đã huỷ',
+          });
+        }
+      } else {
+        throw Exception(result['message'] ?? "Lỗi khi hủy lịch");
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Lỗi khi hủy lịch: $e")),
+        );
+      }
+      print('Error cancelling booking: $e');
     }
-    if (context.mounted) Navigator.pop(context, true);
   }
 
   Future<void> _saveReview() async {
@@ -125,18 +144,15 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         _isReviewSubmitted = true;
       });
 
-      final List<String> stored = prefs.getStringList('bookings') ?? [];
-      if (widget.bookingIndex >= 0 && widget.bookingIndex < stored.length) {
-        stored[widget.bookingIndex] = jsonEncode(booking);
-        await prefs.setStringList('bookings', stored);
-      } else {
-        print("⚠ bookingIndex invalid in _saveReview: ${widget.bookingIndex}, total: ${stored.length}");
-      }
-
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Đã gửi đánh giá thành công.")),
         );
+        Navigator.pop(context, {
+          'updated': true,
+          'new_status': booking['status'],
+          'rating': _rating, // Truyền rating về
+        });
       }
     } catch (e) {
       if (context.mounted) {
@@ -224,10 +240,10 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _buildInfoRow("Dịch vụ", booking['service']),
-                    _buildInfoRow("Ngày", booking['date']),
-                    _buildInfoRow("Giờ", booking['time']),
-                    _buildInfoRow("Nhân viên", booking['employee']),
+                    _buildInfoRow("Dịch vụ", booking['service'] ?? 'Dịch vụ'),
+                    _buildInfoRow("Ngày", booking['date'] ?? 'N/A'),
+                    _buildInfoRow("Giờ", booking['time'] ?? 'N/A'),
+                    _buildInfoRow("Nhân viên", booking['employee'] ?? '---'),
                     if (extras.isNotEmpty) _buildInfoRow("Dịch vụ thêm", extras),
                     _buildInfoRow("Tổng tiền", "${NumberFormat('#,###', 'vi_VN').format(double.tryParse(booking['total'].toString()) ?? 0)} đ"),
                     Padding(
@@ -271,17 +287,23 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                     onPressed: () {
                       showDialog(
                         context: context,
-                        builder: (_) => AlertDialog(
+                        builder: (context) => AlertDialog(
                           title: const Text("Xác nhận huỷ lịch"),
                           content: const Text("Bạn có chắc muốn huỷ lịch này không?"),
                           actions: [
-                            TextButton(child: const Text("Không"), onPressed: () => Navigator.pop(context)),
-                            TextButton(child: const Text("Huỷ lịch", style: TextStyle(color: Colors.red)), onPressed: () {
-                              Navigator.pop(context);
-                              _cancelBooking();
-                            }),
+                            TextButton(
+                              child: const Text("Không"),
+                              onPressed: () => Navigator.pop(context),
+                            ),
+                            TextButton(
+                              child: const Text("Huỷ lịch", style: TextStyle(color: Colors.red)),
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _cancelBooking();
+                              },
+                            ),
                           ],
-                        ),
+                        )
                       );
                     },
                     style: ElevatedButton.styleFrom(

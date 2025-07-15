@@ -56,7 +56,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Khôi phục mật khẩu"),
+        title: const Text("Lấy lại mật khẩu"),
         backgroundColor: Colors.teal,
       ),
       body: Padding(

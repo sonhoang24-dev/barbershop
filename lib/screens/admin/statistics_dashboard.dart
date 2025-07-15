@@ -32,7 +32,8 @@ class _StatisticsDashboardScreenState extends State<StatisticsDashboardScreen> {
   Future<void> fetchStats() async {
     setState(() => isLoading = true);
 
-    final url = Uri.parse('http://10.0.2.2/barbershop/backend/auth/get_dashboard_stats.php?start_date=${startDate!.toIso8601String().substring(0, 10)}&end_date=${endDate!.toIso8601String().substring(0, 10)}');
+    final url = Uri.parse(
+        'http://10.0.2.2/barbershop/backend/auth/get_dashboard_stats.php?start_date=${startDate!.toIso8601String().substring(0, 10)}&end_date=${endDate!.toIso8601String().substring(0, 10)}');
 
     try {
       final res = await http.get(url);
@@ -44,7 +45,14 @@ class _StatisticsDashboardScreenState extends State<StatisticsDashboardScreen> {
           totalBookings = data['total_bookings'];
           totalRevenue = double.tryParse(data['total_revenue'].toString()) ?? 0;
           totalCustomers = data['total_customers'];
-          topServices = List<Map<String, dynamic>>.from(data['top_services']);
+          topServices = List<Map<String, dynamic>>.from(data['top_services'].map((s) => {
+            'service_id': s['service_id'],
+            'service_name': s['service_name'],
+            'review_count': s['review_count'] ?? 0,
+            'average_rating': s['average_rating'] != null
+                ? double.tryParse(s['average_rating'].toString()) ?? 0.0
+                : null,
+          }));
         });
       }
     } catch (e) {
@@ -105,12 +113,33 @@ class _StatisticsDashboardScreenState extends State<StatisticsDashboardScreen> {
     );
   }
 
+  Widget buildStarRating(double rating) {
+    int fullStars = rating.floor();
+    bool hasHalfStar = (rating - fullStars) >= 0.5;
+    int emptyStars = 5 - fullStars - (hasHalfStar ? 1 : 0);
+
+    return Row(
+      children: [
+        ...List.generate(fullStars, (index) => const Icon(Icons.star, color: Colors.orange, size: 16)),
+        if (hasHalfStar) const Icon(Icons.star_half, color: Colors.orange, size: 16),
+        ...List.generate(emptyStars, (index) => const Icon(Icons.star_border, color: Colors.orange, size: 16)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Báo cáo & Thống kê'),
         backgroundColor: Colors.teal,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: fetchStats,
+            tooltip: 'Làm mới dữ liệu',
+          ),
+        ],
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator(color: Colors.teal))
@@ -171,13 +200,23 @@ class _StatisticsDashboardScreenState extends State<StatisticsDashboardScreen> {
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
             ),
             ...topServices.map((s) {
-              final rating = s['average_rating'];
-              final avgRating = rating != null ? double.tryParse(rating.toString()) ?? 0.0 : 0.0;
+              final avgRating = s['average_rating'] is num
+                  ? (s['average_rating'] as num).toDouble()
+                  : (s['average_rating'] == null ? null : 0.0);
               return ListTile(
                 leading: const Icon(Icons.star, color: Colors.orange),
-                title: Text(s['name']),
-                subtitle: Text('Trung bình: ${avgRating.toStringAsFixed(1)} ⭐'),
-                trailing: Text('${s['count']} lượt'),
+                title: Text(s['service_name']),
+                subtitle: Row(
+                  children: [
+                    const Text('Trung bình: '),
+                    if (avgRating != null) buildStarRating(avgRating),
+                    const SizedBox(width: 4),
+                    Text(avgRating != null ? avgRating.toStringAsFixed(1) : 'Chưa có đánh giá'),
+                  ],
+                ),
+                trailing: Text(
+                  '${s['review_count']} lượt',
+                ),
               );
             }),
           ],
