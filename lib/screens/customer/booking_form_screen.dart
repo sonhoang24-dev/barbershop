@@ -1,4 +1,4 @@
-import 'package:barbershop_app/screens/customer/customer_home.dart';
+import 'package:Barbershopdht/screens/customer/customer_home.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -28,14 +28,41 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   List<String> bookedTimes = [];
 
   @override
+  void initState() {
+    super.initState();
+    _loadCustomerInfo(); // Load customer info when the widget initializes
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     service = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
-    final rawPrice = service['price'];
-    final parsedPrice = double.tryParse(rawPrice.toString()) ?? 0.0;
     _loadEmployees();
     _loadExtras();
     _loadImages();
+  }
+
+  // Load customer name and phone from SharedPreferences using correct keys
+  Future<void> _loadCustomerInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? customerName = prefs.getString('name'); // Changed from 'customer_name' to 'name'
+    final String? customerPhone = prefs.getString('phone'); // Changed from 'customer_phone' to 'phone'
+
+    setState(() {
+      if (customerName != null && customerName.isNotEmpty) {
+        nameController.text = customerName;
+      }
+      if (customerPhone != null && customerPhone.isNotEmpty) {
+        phoneController.text = customerPhone;
+      }
+    });
+  }
+
+  // Save customer name and phone to SharedPreferences
+  Future<void> _saveCustomerInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('name', nameController.text.trim()); // Use 'name' key
+    await prefs.setString('phone', phoneController.text.trim()); // Use 'phone' key
   }
 
   Future<void> _loadEmployees() async {
@@ -53,7 +80,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       setState(() {
-        // Merge new data with existing selections
         final newExtras = data.map<Map<String, dynamic>>((e) {
           final existing = extraServices.firstWhere(
                 (es) => es['id'] == e['id'],
@@ -87,13 +113,12 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       final data = jsonDecode(res.body);
       setState(() {
         bookedTimes = List<String>.from(data);
-        // Regenerate time slots without affecting extraServices
         final selectedEmp = employees.firstWhere(
               (e) => int.tryParse(e['id'].toString()) == employeeId,
           orElse: () => {'working_hours': '08:00-17:00'},
         );
         timeSlots = _generateTimeSlots(selectedEmp['working_hours'] ?? '08:00-17:00');
-        selectedTime = null; // Reset time slot selection
+        selectedTime = null;
       });
     }
   }
@@ -171,6 +196,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     final data = jsonDecode(response.body);
 
     if (data['success'] == true) {
+      await _saveCustomerInfo();
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
@@ -240,13 +266,19 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
             const SizedBox(height: 10),
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: "Họ và tên", border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: "Họ và tên",
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: phoneController,
               keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: "Số điện thoại", border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: "Số điện thoại",
+                border: OutlineInputBorder(),
+              ),
             ),
             const Divider(height: 32),
             const Text("Chọn dịch vụ đi kèm", style: TextStyle(fontWeight: FontWeight.bold)),

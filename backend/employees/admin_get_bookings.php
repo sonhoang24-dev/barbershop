@@ -10,7 +10,7 @@ error_log("Received search: $search, status: $status");
 
 $sql = "
     SELECT
-        b.id, b.date, b.time, b.status, b.total,
+        b.id, b.date, b.time, b.status, b.total, b.created_at,
         b.customer_name, b.customer_phone, b.note,
         s.name AS service_name,
         u.name AS user_name,

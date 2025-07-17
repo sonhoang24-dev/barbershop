@@ -1,6 +1,6 @@
 import 'dart:convert';
-import 'package:barbershop_app/screens/admin/update_profile.dart';
-import 'package:barbershop_app/screens/customer/update_profile_screen.dart';
+import 'package:Barbershopdht/screens/admin/update_profile.dart';
+import 'package:Barbershopdht/screens/customer/update_profile_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 

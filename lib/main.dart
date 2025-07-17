@@ -1,5 +1,5 @@
-import 'package:barbershop_app/screens/admin/admin_dashboard.dart';
-import 'package:barbershop_app/screens/customer/booking_form_screen.dart';
+import 'package:Barbershopdht/screens/admin/admin_dashboard.dart';
+import 'package:Barbershopdht/screens/customer/booking_form_screen.dart';
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';

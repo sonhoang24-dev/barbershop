@@ -13,6 +13,7 @@ class Booking {
   final String serviceName;
   final String? userName;
   final String? employeeName;
+  final String? createdAt;
 
   Booking({
     required this.id,
@@ -29,6 +30,7 @@ class Booking {
     required this.serviceName,
     this.userName,
     this.employeeName,
+    this.createdAt,  // thêm vào constructor
   });
 
   factory Booking.fromJson(Map<String, dynamic> json) {
@@ -49,6 +51,7 @@ class Booking {
       serviceName: json['service_name'] ?? '',
       userName: json['user_name'],
       employeeName: json['employee_name'],
+      createdAt: json['created_at'],
     );
   }
 }

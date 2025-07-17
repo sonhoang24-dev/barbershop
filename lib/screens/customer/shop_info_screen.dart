@@ -44,6 +44,13 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
     }
   }
 
+  Future<void> _requestPhonePermission() async {
+    final status = await Permission.phone.request();
+    if (!status.isGranted) {
+      _showError('Cần cấp quyền gọi điện để thực hiện cuộc gọi');
+    }
+  }
+
   void _onMapCreated(GoogleMapController controller) {
     if (_mapController == null) {
       _mapController = controller;
@@ -66,13 +73,16 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
   }
 
   Future<void> _dialPhone() async {
-    final url = Platform.isAndroid
-        ? Uri.parse('tel:$phoneNumber') // ACTION_DIAL trên Android
-        : Uri.parse('telprompt:$phoneNumber'); // Hiển thị xác nhận trên iOS
+    await _requestPhonePermission();
+
+    final Uri url = Platform.isAndroid
+        ? Uri.parse('tel:$phoneNumber')
+        : Uri.parse('telprompt:$phoneNumber');
+
     debugPrint('Trying to launch URL: $url');
     try {
       if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+        await launchUrl(url, mode: LaunchMode.platformDefault);
       } else {
         debugPrint('Failed to launch URL: $url. No default app found.');
         _showError('Không thể mở ứng dụng điện thoại. Vui lòng kiểm tra cài đặt.');
@@ -220,7 +230,7 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
                 _infoRow(
                   icon: Icons.phone_outlined,
                   child: GestureDetector(
-                    onTap: _dialPhone, // Đổi sang _dialPhone
+                    onTap: _dialPhone,
                     child: Text(
                       phoneNumber,
                       style: const TextStyle(

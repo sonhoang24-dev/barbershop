@@ -143,6 +143,12 @@ class _AppointmentDetailAdminScreenState extends State<AppointmentDetailAdminScr
                             ? '${NumberFormat('#,###', 'vi_VN').format(booking!.total)} VNĐ'
                             : 'Chưa rõ'),
                     _infoRow('Ghi chú:', (booking!.note ?? '').isEmpty ? 'Không có' : booking!.note!),
+                    _infoRow(
+                      'Tạo lúc:',
+                      booking!.createdAt != null
+                          ? DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(booking!.createdAt!))
+                          : 'Không rõ',
+                    ),
                   ]),
                   const SizedBox(height: 16),
                   _buildStatusSection(),
@@ -172,7 +178,7 @@ class _AppointmentDetailAdminScreenState extends State<AppointmentDetailAdminScr
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
+        Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
         const SizedBox(height: 8),
         ...rows,
       ],

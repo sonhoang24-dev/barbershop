@@ -38,43 +38,41 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
 
   Future<void> _loadData() async {
     try {
-      String searchText = _searchController.text.trim();
+      final searchText = _searchController.text.trim();
       String? name;
       String? phone;
-    if (searchText.isNotEmpty && RegExp(r'^\d+$').hasMatch(searchText)) {
-    phone = searchText;
-    } else {
-    name = searchText;
-    }
+      if (searchText.isNotEmpty && RegExp(r'^\d+$').hasMatch(searchText)) {
+        phone = searchText;
+      } else {
+        name = searchText;
+      }
 
-    final employees = await ApiService.fetchEmployees(
-    name: name ?? '',
-    phone: phone ?? '',
-    status: _selectedStatus == 'Tất cả' ? '' : _selectedStatus,
-    );
-    final services = await ApiService.fetchServices();
-    setState(() {
-    _employees = employees;
-    _filteredEmployees = employees;
-    _services = services;
-    _isLoading = false;
-    });
+      final employees = await ApiService.fetchEmployees(
+        name: name ?? '',
+        phone: phone ?? '',
+        status: _selectedStatus == 'Tất cả' ? '' : _selectedStatus,
+      );
+      final services = await ApiService.fetchServices();
+      setState(() {
+        _employees = employees;
+        _filteredEmployees = employees;
+        _services = services;
+        _isLoading = false;
+      });
     } catch (e) {
-    setState(() => _isLoading = false);
-    _showErrorDialog("Lỗi tải dữ liệu: $e");
+      setState(() => _isLoading = false);
+      _showErrorDialog('Lỗi tải dữ liệu: ${e.toString()}');
     }
   }
 
   void _onSearchChanged() {
     if (_debounce?.isActive ?? false) _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 500), () {
-      _filterEmployees();
-    });
+    _debounce = Timer(const Duration(milliseconds: 500), _filterEmployees);
   }
 
-  void _filterEmployees() async {
+  Future<void> _filterEmployees() async {
     try {
-      String searchText = _searchController.text.trim();
+      final searchText = _searchController.text.trim();
       String? name;
       String? phone;
       if (searchText.isNotEmpty && RegExp(r'^\d+$').hasMatch(searchText)) {
@@ -92,17 +90,17 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         _filteredEmployees = employees;
       });
     } catch (e) {
-      _showErrorDialog("Lỗi tìm kiếm: $e");
+      _showErrorDialog('Lỗi tìm kiếm: ${e.toString()}');
     }
   }
 
-  void _showErrorDialog(String message) {
+  void _showErrorDialog(String? message) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: const Text(
-          "Thông báo",
+          'Thông báo',
           style: TextStyle(
             color: Colors.redAccent,
             fontWeight: FontWeight.w600,
@@ -110,14 +108,14 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
           ),
         ),
         content: Text(
-          message,
+          message ?? 'Đã xảy ra lỗi không xác định',
           style: const TextStyle(fontSize: 14),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             style: TextButton.styleFrom(foregroundColor: Colors.grey),
-            child: const Text("Đóng"),
+            child: const Text('Đóng'),
           ),
         ],
       ),
@@ -130,11 +128,13 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     String selectedStatus = emp.status;
     TimeOfDay? startTime;
     TimeOfDay? endTime;
+    String? _errorMessage;
+    String? _successMessage;
 
-    final parts = emp.workingHours.split(" - ");
+    final parts = emp.workingHours.split(' - ');
     if (parts.length == 2) {
-      final startParts = parts[0].split(":");
-      final endParts = parts[1].split(":");
+      final startParts = parts[0].split(':');
+      final endParts = parts[1].split(':');
       startTime = TimeOfDay(hour: int.parse(startParts[0]), minute: 0);
       endTime = TimeOfDay(hour: int.parse(endParts[0]), minute: 0);
     }
@@ -144,9 +144,11 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
       final currentServices = await ApiService.fetchEmployeeServices(emp.id);
       selectedServiceIds.addAll(currentServices.map((s) => s.id));
     } catch (e) {
-      _showErrorDialog("Lỗi tải dịch vụ: $e");
+      _showErrorDialog('Lỗi tải dịch vụ: ${e.toString()}');
       return;
     }
+
+    final isResigned = emp.status == 'Đã nghỉ việc'; // Check if employee is resigned
 
     showDialog(
       context: context,
@@ -167,13 +169,31 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildTextField("Họ và tên", nameController),
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 14),
+                        ),
+                      ),
+                    if (_successMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _successMessage!,
+                          style: const TextStyle(color: Colors.green, fontSize: 14),
+                        ),
+                      ),
+                    _buildTextField('Họ và tên', nameController, enabled: !isResigned),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () async {
+                            onPressed: isResigned
+                                ? null
+                                : () async {
                               final picked = await showTimePicker(
                                 context: context,
                                 initialTime: startTime ?? const TimeOfDay(hour: 8, minute: 0),
@@ -202,7 +222,9 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: OutlinedButton(
-                            onPressed: () async {
+                            onPressed: isResigned
+                                ? null
+                                : () async {
                               final picked = await showTimePicker(
                                 context: context,
                                 initialTime: endTime ?? const TimeOfDay(hour: 17, minute: 0),
@@ -231,12 +253,12 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _buildTextField("Số điện thoại", phoneController, isPhone: true),
+                    _buildTextField('Số điện thoại', phoneController, isPhone: true, enabled: !isResigned),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: selectedStatus,
                       decoration: InputDecoration(
-                        labelText: "Trạng thái",
+                        labelText: 'Trạng thái',
                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                         filled: true,
                         fillColor: Colors.grey.shade50,
@@ -261,7 +283,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "Dịch vụ đảm nhiệm:",
+                        'Dịch vụ đảm nhiệm:',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF0288D1),
@@ -275,7 +297,9 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       value: selectedServiceIds.contains(service.id),
                       activeColor: const Color(0xFF0288D1),
                       checkColor: Colors.white,
-                      onChanged: (bool? selected) {
+                      onChanged: isResigned
+                          ? null
+                          : (bool? selected) {
                         setStateDialog(() {
                           if (selected == true) {
                             selectedServiceIds.add(service.id);
@@ -292,7 +316,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                  child: const Text("Hủy"),
+                  child: const Text('Hủy'),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -300,48 +324,38 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () async {
+                    setStateDialog(() {
+                      _errorMessage = null;
+                      _successMessage = null;
+                    });
+
                     if (nameController.text.isEmpty ||
                         phoneController.text.isEmpty ||
                         startTime == null ||
                         endTime == null ||
                         selectedServiceIds.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text("Vui lòng nhập đầy đủ thông tin"),
-                          backgroundColor: Colors.redAccent,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
+                      setStateDialog(() {
+                        _errorMessage = 'Vui lòng nhập đầy đủ thông tin';
+                      });
                       return;
                     }
 
                     if (!RegExp(r'^\d{10}$').hasMatch(phoneController.text)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text("Số điện thoại phải có đúng 10 chữ số"),
-                          backgroundColor: const Color(0xFFFFA726),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
+                      setStateDialog(() {
+                        _errorMessage = 'Số điện thoại phải có đúng 10 chữ số';
+                      });
                       return;
                     }
 
                     if (endTime!.hour <= startTime!.hour) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text("Giờ kết thúc phải sau giờ bắt đầu"),
-                          backgroundColor: const Color(0xFFFFA726),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
+                      setStateDialog(() {
+                        _errorMessage = 'Giờ kết thúc phải sau giờ bắt đầu';
+                      });
                       return;
                     }
 
                     final workingHours =
-                        "${startTime!.hour.toString().padLeft(2, '0')}:00 - ${endTime!.hour.toString().padLeft(2, '0')}:00";
+                        '${startTime!.hour.toString().padLeft(2, '0')}:00 - ${endTime!.hour.toString().padLeft(2, '0')}:00';
 
                     try {
                       final success = await ApiService.updateEmployee(
@@ -352,41 +366,35 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         serviceIds: selectedServiceIds.toList(),
                         status: selectedStatus,
                       );
-
                       if (success) {
+                        setStateDialog(() {
+                          _successMessage = 'Cập nhật thành công';
+                        });
+                        await Future.delayed(const Duration(seconds: 1));
                         Navigator.pop(context);
                         await _loadData();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text("Cập nhật thành công"),
-                            backgroundColor: Colors.green,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Cập nhật nhân viên thành công'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text("Cập nhật thất bại"),
-                            backgroundColor: Colors.redAccent,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        );
+                        setStateDialog(() {
+                          _errorMessage = 'Cập nhật thất bại';
+                        });
                       }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Lỗi: $e"),
-                          backgroundColor: Colors.redAccent,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
+                      setStateDialog(() {
+                        _errorMessage = 'Lỗi: ${e.toString()}';
+                      });
                     }
                   },
                   child: const Text(
-                    "Cập nhật",
+                    'Cập nhật',
                     style: TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ),
@@ -403,19 +411,14 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     final phoneController = TextEditingController();
     TimeOfDay? startTime;
     TimeOfDay? endTime;
+    String? _errorMessage;
+    String? _successMessage;
     Set<int> selectedServiceIds = {};
 
     try {
       _services = await ApiService.fetchServices();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Lỗi lấy danh sách dịch vụ: $e"),
-          backgroundColor: Colors.redAccent,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-      );
+      _showErrorDialog('Lỗi lấy danh sách dịch vụ: ${e.toString()}');
       return;
     }
 
@@ -438,7 +441,23 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildTextField("Họ và tên", nameController),
+                    if (_errorMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _errorMessage!,
+                          style: const TextStyle(color: Colors.redAccent, fontSize: 14),
+                        ),
+                      ),
+                    if (_successMessage != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Text(
+                          _successMessage!,
+                          style: const TextStyle(color: Colors.green, fontSize: 14),
+                        ),
+                      ),
+                    _buildTextField('Họ và tên', nameController),
                     const SizedBox(height: 8),
                     Row(
                       children: [
@@ -502,12 +521,12 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    _buildTextField("Số điện thoại", phoneController, isPhone: true),
+                    _buildTextField('Số điện thoại', phoneController, isPhone: true),
                     const SizedBox(height: 12),
                     const Align(
                       alignment: Alignment.centerLeft,
                       child: Text(
-                        "Dịch vụ đảm nhiệm:",
+                        'Dịch vụ đảm nhiệm:',
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
                           color: Color(0xFF0288D1),
@@ -538,7 +557,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                 TextButton(
                   onPressed: () => Navigator.pop(context),
                   style: TextButton.styleFrom(foregroundColor: Colors.grey),
-                  child: const Text("Hủy"),
+                  child: const Text('Hủy'),
                 ),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -546,6 +565,11 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
                   onPressed: () async {
+                    setStateDialog(() {
+                      _errorMessage = null;
+                      _successMessage = null;
+                    });
+
                     final name = nameController.text.trim();
                     final phone = phoneController.text.trim();
 
@@ -554,43 +578,28 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         startTime == null ||
                         endTime == null ||
                         selectedServiceIds.isEmpty) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text("Vui lòng nhập đầy đủ thông tin"),
-                          backgroundColor: Colors.redAccent,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
+                      setStateDialog(() {
+                        _errorMessage = 'Vui lòng nhập đầy đủ thông tin';
+                      });
                       return;
                     }
 
                     if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text("Số điện thoại phải có đúng 10 chữ số"),
-                          backgroundColor: const Color(0xFFFFA726),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
+                      setStateDialog(() {
+                        _errorMessage = 'Số điện thoại phải có đúng 10 chữ số';
+                      });
                       return;
                     }
 
                     if (endTime!.hour <= startTime!.hour) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: const Text("Giờ kết thúc phải sau giờ bắt đầu"),
-                          backgroundColor: const Color(0xFFFFA726),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
+                      setStateDialog(() {
+                        _errorMessage = 'Giờ kết thúc phải sau giờ bắt đầu';
+                      });
                       return;
                     }
 
                     final workingHours =
-                        "${startTime!.hour.toString().padLeft(2, '0')}:00 - ${endTime!.hour.toString().padLeft(2, '0')}:00";
+                        '${startTime!.hour.toString().padLeft(2, '0')}:00 - ${endTime!.hour.toString().padLeft(2, '0')}:00';
 
                     try {
                       final success = await ApiService.addEmployeeWithServices(
@@ -602,39 +611,34 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       );
 
                       if (success) {
+                        setStateDialog(() {
+                          _successMessage = 'Thêm nhân viên thành công';
+                        });
+                        await Future.delayed(const Duration(seconds: 1));
                         Navigator.pop(context);
                         await _loadData();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text("Thêm nhân viên thành công"),
-                            backgroundColor: Colors.green,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        );
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Thêm nhân viên thành công'),
+                              backgroundColor: Colors.green,
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
                       } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text("Thêm nhân viên thất bại"),
-                            backgroundColor: Colors.redAccent,
-                            behavior: SnackBarBehavior.floating,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        );
+                        setStateDialog(() {
+                          _errorMessage = 'Thêm nhân viên thất bại';
+                        });
                       }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Lỗi: $e"),
-                          backgroundColor: Colors.redAccent,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                        ),
-                      );
+                      setStateDialog(() {
+                        _errorMessage = 'Lỗi: ${e.toString()}';
+                      });
                     }
                   },
                   child: const Text(
-                    "Lưu",
+                    'Lưu',
                     style: TextStyle(color: Colors.white, fontSize: 14),
                   ),
                 ),
@@ -646,9 +650,10 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, {bool isPhone = false}) {
+  Widget _buildTextField(String label, TextEditingController controller, {bool isPhone = false, bool enabled = true}) {
     return TextFormField(
       controller: controller,
+      enabled: enabled,
       keyboardType: isPhone ? TextInputType.phone : TextInputType.text,
       inputFormatters: isPhone
           ? [
@@ -660,30 +665,27 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: enabled ? Colors.grey.shade50 : Colors.grey.shade200,
         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        errorText: isPhone && controller.text.isNotEmpty && !RegExp(r'^\d{10}$').hasMatch(controller.text)
+        errorText: isPhone &&
+            controller.text.isNotEmpty &&
+            !RegExp(r'^\d{10}$').hasMatch(controller.text)
             ? 'Số điện thoại phải có đúng 10 chữ số'
             : null,
       ),
       style: const TextStyle(fontSize: 14),
-      onChanged: (value) {
-        if (isPhone) {
-          setState(() {});
-        }
-      },
     );
   }
 
   Widget _buildEmployeeCard(Employee emp) {
-    Color statusColor = emp.status == 'Đang hoạt động' ? Colors.green : Colors.red;
+    final statusColor = emp.status == 'Đang hoạt động' ? Colors.green : Colors.red;
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 4,
       child: Padding(
-        padding: const EdgeInsets.all(16), // Tăng padding để thẻ rộng hơn
+        padding: const EdgeInsets.all(16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -713,19 +715,19 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "SĐT: ${emp.phone}",
+                    'SĐT: ${emp.phone}',
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Giờ làm: ${emp.workingHours}",
+                    'Giờ làm: ${emp.workingHours}',
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    "Dịch vụ: ${emp.serviceNames.isEmpty ? 'Chưa có' : emp.serviceNames}",
+                    'Dịch vụ: ${emp.serviceNames.isEmpty ? 'Chưa có' : emp.serviceNames}',
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    maxLines: null, // Cho phép đa dòng để hiển thị hết tên dịch vụ
+                    maxLines: null,
                   ),
                   const SizedBox(height: 4),
                   Row(
@@ -773,7 +775,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         title: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: "Tìm tên hoặc tiền tố số điện thoại (VD: 03, 033)",
+            hintText: 'Tìm tên hoặc tiền tố số điện thoại (VD: 03, 033)',
             hintStyle: const TextStyle(color: Colors.white70, fontSize: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -814,15 +816,15 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
               });
             },
             itemBuilder: (context) => [
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'Tất cả',
                 child: Text('Tất cả', style: TextStyle(fontSize: 16)),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'Đang hoạt động',
                 child: Text('Đang hoạt động', style: TextStyle(fontSize: 16, color: Colors.green)),
               ),
-              PopupMenuItem(
+              const PopupMenuItem(
                 value: 'Đã nghỉ việc',
                 child: Text('Đã nghỉ việc', style: TextStyle(fontSize: 16, color: Colors.red)),
               ),
@@ -854,7 +856,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              "Chưa có nhân viên nào",
+              'Chưa có nhân viên nào',
               style: TextStyle(
                 fontSize: 18,
                 color: Colors.grey[600],

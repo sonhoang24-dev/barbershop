@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../models/service.dart';
 import '../../../services/api_service.dart';
-import 'package:barbershop_app/screens/customer/service_detail_screen.dart';
+import 'package:Barbershopdht/screens/customer/service_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});

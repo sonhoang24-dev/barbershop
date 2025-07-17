@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:badges/badges.dart' as badges;
 import '../../models/booking.dart';
 import '../../services/api_service.dart';
 import 'appointment_detail_admin_screen.dart';
@@ -17,20 +18,41 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
   final TextEditingController _searchController = TextEditingController();
   String _selectedStatus = 'Tất cả';
   Timer? _debounce;
+  Timer? _notificationTimer;
   bool isLoading = true;
+  int _newBookingCount = 0;
+  List<Booking> _newBookings = [];
 
   @override
   void initState() {
     super.initState();
     _fetchBookings();
     _searchController.addListener(() => _onSearchChanged(_searchController.text));
+    _startNotificationCheck();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
+    _notificationTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _startNotificationCheck() {
+    _notificationTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      try {
+        final bookings = await ApiService.getBookings(status: 'Chờ xác nhận');
+        if (mounted) {
+          setState(() {
+            _newBookings = bookings ?? [];
+            _newBookingCount = _newBookings.length;
+          });
+        }
+      } catch (e) {
+        print('Lỗi khi kiểm tra đơn hàng mới: $e');
+      }
+    });
   }
 
   Future<void> _fetchBookings() async {
@@ -41,9 +63,22 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
         status: _selectedStatus == 'Tất cả' ? '' : _selectedStatus,
       );
     });
-    await _futureBookings; // Ensure the Future completes
-    if (mounted) {
-      setState(() => isLoading = false);
+    final bookings = await _futureBookings;
+    if (mounted && bookings != null) {
+      bookings.sort((a, b) {
+        if (a.status == 'Chờ xác nhận' && b.status != 'Chờ xác nhận') {
+          return -1;
+        } else if (a.status != 'Chờ xác nhận' && b.status == 'Chờ xác nhận') {
+          return 1;
+        } else {
+          final dateTimeA = DateTime.parse('${a.date.toString().split(' ')[0]} ${a.time ?? "00:00"}');
+          final dateTimeB = DateTime.parse('${b.date.toString().split(' ')[0]} ${b.time ?? "00:00"}');
+          return dateTimeB.compareTo(dateTimeA);
+        }
+      });
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
@@ -54,7 +89,7 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
     });
   }
 
-  Color _getStatusColor(String status) {
+  Color _getStatusColor(String? status) {
     switch (status) {
       case 'Chờ xác nhận':
         return Colors.orange[700]!;
@@ -69,6 +104,70 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
       default:
         return Colors.grey[700]!;
     }
+  }
+
+  void _showNotificationDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Đơn hàng mới'),
+        content: _newBookings.isEmpty
+            ? const Text('Không có đơn hàng mới.')
+            : SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: _newBookings.length,
+            itemBuilder: (context, index) {
+              final booking = _newBookings[index];
+              return ListTile(
+                title: Text(booking.serviceName ?? ''),
+                subtitle: Text('Khách: ${booking.customerName ?? ''} - ${booking.time ?? ''}'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.red),
+                  onPressed: () {
+                    setState(() {
+                      _newBookings.removeAt(index);
+                      _newBookingCount = _newBookings.length;
+                    });
+                  },
+                ),
+                onTap: () async {
+                  final updated = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AppointmentDetailAdminScreen(bookingId: booking.id),
+                    ),
+                  );
+                  if (updated == true) {
+                    setState(() {
+                      _newBookings.removeAt(index);
+                      _newBookingCount = _newBookings.length;
+                    });
+                    _fetchBookings();
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Cập nhật đơn hàng thành công'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildBookingCard(Booking booking, ThemeData theme) {
@@ -90,7 +189,22 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
             context,
             MaterialPageRoute(builder: (_) => AppointmentDetailAdminScreen(bookingId: booking.id)),
           );
-          if (updated == true) _fetchBookings();
+          if (updated == true) {
+            setState(() {
+              _newBookings.removeWhere((b) => b.id == booking.id);
+              _newBookingCount = _newBookings.length;
+            });
+            _fetchBookings();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Cập nhật đơn hàng thành công'),
+                  backgroundColor: Colors.green,
+                  duration: Duration(seconds: 2),
+                ),
+              );
+            }
+          }
         },
         child: Container(
           constraints: const BoxConstraints(minHeight: 140),
@@ -98,6 +212,7 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              /// khách hàng
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -108,7 +223,7 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            booking.customerName,
+                            booking.customerName ?? '',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.w700,
@@ -125,13 +240,15 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                 ],
               ),
               const SizedBox(height: 12),
+
+              /// dịch vụ
               Row(
                 children: [
                   Icon(Icons.cut, color: Colors.grey[600], size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      booking.serviceName,
+                      booking.serviceName ?? '',
                       style: TextStyle(
                         fontSize: 14,
                         color: Colors.grey[600],
@@ -143,12 +260,14 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                 ],
               ),
               const SizedBox(height: 12),
+
+              /// ngày và giờ
               Row(
                 children: [
                   Icon(Icons.calendar_today, color: Colors.grey[600], size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    DateFormat('dd/MM/yyyy').format(booking.date),
+                    booking.date != null ? DateFormat('dd/MM/yyyy').format(booking.date!) : '',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -158,7 +277,7 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                   Icon(Icons.access_time, color: Colors.grey[600], size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    booking.time,
+                    booking.time ?? '',
                     style: TextStyle(
                       fontSize: 14,
                       color: Colors.grey[600],
@@ -167,12 +286,14 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                 ],
               ),
               const SizedBox(height: 12),
+
+              /// trạng thái
               Row(
                 children: [
                   Icon(Icons.fiber_manual_record, color: statusColor, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Trạng thái: ${booking.status}',
+                    'Trạng thái: ${booking.status ?? ''}',
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
@@ -181,7 +302,10 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                   ),
                 ],
               ),
-              if (booking.total > 0) ...[
+
+
+              /// tổng tiền
+              if (booking.total != null && booking.total! > 0) ...[
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -198,12 +322,29 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                   ],
                 ),
               ],
+              if (booking.createdAt != null && booking.createdAt!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Icon(Icons.schedule, color: Colors.grey[600], size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Tạo lúc: ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.parse(booking.createdAt!))}',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
       ),
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -276,6 +417,21 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
             ],
             icon: const Icon(Icons.filter_list, color: Colors.white, size: 24),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+          IconButton(
+            icon: badges.Badge(
+              badgeContent: Text(
+                '$_newBookingCount',
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              showBadge: _newBookingCount > 0,
+              badgeStyle: badges.BadgeStyle(
+                badgeColor: Colors.red,
+                padding: const EdgeInsets.all(6),
+              ),
+              child: const Icon(Icons.notifications, color: Colors.white, size: 24),
+            ),
+            onPressed: _showNotificationDialog,
           ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white, size: 24),

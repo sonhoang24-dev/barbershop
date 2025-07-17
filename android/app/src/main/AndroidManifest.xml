@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -11,6 +12,7 @@
         android:label="Barbershopdht"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+
         <meta-data
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyBVOE8hOePM86tXh9i0sdY9G6qMLUuY2Vc" />
@@ -24,19 +26,29 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
+
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
+
+            <!-- Launcher intent filter -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!-- Dial intent filter -->
+            <intent-filter>
                 <action android:name="android.intent.action.DIAL" />
                 <data android:scheme="tel" />
             </intent-filter>
+
         </activity>
+
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
     </application>
 
     <queries>
@@ -45,4 +57,5 @@
             <data android:mimeType="text/plain" />
         </intent>
     </queries>
+
 </manifest>

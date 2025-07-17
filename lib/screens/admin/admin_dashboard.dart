@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:barbershop_app/screens/admin/review_list_admin.dart';
+import 'package:Barbershopdht/screens/admin/review_list_admin.dart';
 import 'manage_employees.dart';
 import 'manage_services.dart';
 import 'appointment_list_admin.dart';
