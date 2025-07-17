@@ -23,6 +23,7 @@ if ($row = $result->fetch_assoc()) {
             "success" => true,
             "user" => [
                 "id" => $row['id'],
+                "password" => $row['password'],
                 "name" => $row['name'],
                 "email" => $row['email'],
                 "role" => $row['role'],

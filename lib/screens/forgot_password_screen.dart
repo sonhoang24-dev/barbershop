@@ -32,7 +32,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final res = await http.post(
-        Uri.parse('http://10.0.2.2/barbershop/backend/auth/forgot_password.php'),
+        Uri.parse('http://192.168.1.210/barbershop/backend/auth/forgot_password.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email}),
       );
@@ -64,7 +64,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
         child: Column(
           children: [
             const Text(
-              "Nhập email để nhận mật khẩu mới:",
+              "Nhập email để lấy mật khẩu mới:",
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 12),

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -49,7 +50,9 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
 
-    final url = Uri.parse('http://10.0.2.2/barbershop/backend/auth/login.php');
+    final url =
+    Uri.parse('http://192.168.1.210/barbershop/backend/auth/login.php');
+
     try {
       final response = await http.post(
         url,
@@ -60,25 +63,39 @@ class _LoginScreenState extends State<LoginScreen> {
       final data = jsonDecode(response.body);
       if (data['success']) {
         final user = data['user'];
+
         final prefs = await SharedPreferences.getInstance();
         await prefs.setInt('id', user['id']);
+        await prefs.setString('raw_password', password);
         await prefs.setString('name', user['name'] ?? '');
         await prefs.setString('email', user['email'] ?? '');
         await prefs.setString('role', user['role'] ?? 'customer');
-        if (user['phone'] != null) await prefs.setString('phone', user['phone']);
-        if (user['gender'] != null) await prefs.setString('gender', user['gender']);
-        if (user['avatar'] != null) await prefs.setString('avatar', user['avatar']);
+        if (user['phone'] != null)
+          await prefs.setString('phone', user['phone']);
+        if (user['gender'] != null)
+          await prefs.setString('gender', user['gender']);
+        if (user['avatar'] != null)
+          await prefs.setString('avatar', user['avatar']);
 
         if (user['role'] == 'admin') {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const AdminDashboard()));
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (_) => const AdminDashboard()));
         } else {
-          Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const CustomerHome()));
+          Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (_) => const CustomerHome()));
         }
       } else {
-        setState(() => _error = data['message'] ?? "Đăng nhập thất bại");
+        setState(() =>
+        _error = data['message'] ?? "Đăng nhập thất bại, vui lòng thử lại.");
       }
     } catch (e) {
       setState(() => _error = "Không kết nối được máy chủ");
+
+      if (e is SocketException) {
+        debugPrint('Lỗi mạng: $e');
+      } else {
+        debugPrint('Lỗi không xác định: $e');
+      }
     } finally {
       setState(() => _loading = false);
     }
@@ -87,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFB2DFDB), // teal nhạt
+      backgroundColor: const Color(0xFFB2DFDB), // màu teal nhạt
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
@@ -100,55 +117,71 @@ class _LoginScreenState extends State<LoginScreen> {
                     'https://down-my.img.susercontent.com/file/e4ac35108840c7dd9ab48e25feb09ff4'),
                 backgroundColor: Colors.transparent,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               const Text(
                 "Đăng nhập hệ thống",
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.teal),
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.teal,
+                ),
               ),
               const SizedBox(height: 32),
               _buildInputField(_emailController, Icons.email, "Email", false),
               const SizedBox(height: 16),
               _buildPasswordField(),
-              const SizedBox(height: 16),
-              if (_error != null)
+              if (_error != null) ...[
+                const SizedBox(height: 16),
                 Text(
                   _error!,
-                  style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                      color: Colors.red, fontWeight: FontWeight.bold),
                 ),
-              const SizedBox(height: 16),
+              ],
+              const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
                 height: 50,
                 child: ElevatedButton(
                   onPressed: _loading || !_isFilled ? null : _login,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: _isFilled ? Colors.teal[800] : Colors.teal[300],
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    backgroundColor: _isFilled
+                        ? Colors.teal
+                        : Colors.grey.shade400,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                   child: _loading
                       ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text("Đăng nhập", style: TextStyle(fontSize: 18, color: Colors.white)),
+                      : Text("Đăng nhập",
+                      style: TextStyle(
+                          fontSize: 18, fontWeight: FontWeight.w600, color: Colors.white)),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   TextButton(
-                    child: const Text("Đăng ký", style: TextStyle(color: Colors.teal)),
+                    child: const Text("Đăng ký",
+                        style: TextStyle(color: Colors.teal)),
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen()));
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const RegisterScreen()));
                     },
                   ),
                   const Text("|", style: TextStyle(color: Colors.teal)),
                   TextButton(
-                    child: const Text("Quên mật khẩu?", style: TextStyle(color: Colors.teal)),
+                    child: const Text("Quên mật khẩu?",
+                        style: TextStyle(color: Colors.teal)),
                     onPressed: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()));
+                      Navigator.push(context,
+                          MaterialPageRoute(builder: (_) => const ForgotPasswordScreen()));
                     },
                   ),
                 ],
-              )
+              ),
             ],
           ),
         ),
@@ -156,19 +189,22 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Widget _buildInputField(TextEditingController controller, IconData icon, String hint, bool obscure) {
+  Widget _buildInputField(TextEditingController controller, IconData icon,
+      String hint, bool obscure) {
     return TextField(
       controller: controller,
       obscureText: obscure,
       obscuringCharacter: '*',
       style: const TextStyle(color: Colors.black87),
       decoration: InputDecoration(
-        prefixIcon: Icon(icon, color: Colors.teal[700]),
+        prefixIcon: Icon(icon, color: Colors.teal),
         hintText: hint,
         hintStyle: const TextStyle(color: Colors.black45),
         filled: true,
         fillColor: Colors.white,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
       ),
     );
   }
@@ -182,7 +218,7 @@ class _LoginScreenState extends State<LoginScreen> {
       autocorrect: false,
       style: const TextStyle(color: Colors.black87),
       decoration: InputDecoration(
-        prefixIcon: Icon(Icons.lock, color: Colors.teal[700]),
+        prefixIcon: Icon(Icons.lock, color: Colors.teal),
         suffixIcon: IconButton(
           icon: Icon(
             _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -195,11 +231,9 @@ class _LoginScreenState extends State<LoginScreen> {
         filled: true,
         fillColor: Colors.white,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
-        ),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none),
       ),
     );
-
   }
 }

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class ReviewService {
-  static const baseUrl = "http://10.0.2.2/barbershop/backend/reviews";
+  static const baseUrl = "http://192.168.1.210/barbershop/backend/reviews";
   static Future<void> submitReview({
     required int bookingId,
     required int userId,

@@ -1,11 +1,12 @@
 <?php
+ini_set('display_errors', '0');
+error_reporting(0);
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 header("Access-Control-Allow-Methods: POST");
 require_once("../db.php");
 
 $data = json_decode(file_get_contents("php://input"), true);
-
 $id         = $data["id"] ?? null;
 $name       = $data["name"] ?? "";
 $email      = $data["email"] ?? "";

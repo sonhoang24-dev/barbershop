@@ -9,10 +9,9 @@ import '../models/employee.dart';
 import '../models/booking.dart';
 
 class ApiService {
-  static const String baseUrl = "http://10.0.2.2/barbershop/backend";
+  static const String baseUrl = "http://192.168.1.210/barbershop/backend";
 
   // -------------------- AUTH --------------------
-
   static Future<User?> login(String email, String password) async {
     final url = Uri.parse("$baseUrl/auth/login.php");
 
@@ -52,7 +51,6 @@ class ApiService {
   }
 
   // -------------------- PROFILE --------------------
-
   static Future<void> updateProfileBase64({
     required int id,
     required String name,
@@ -89,6 +87,7 @@ class ApiService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getInt('id') ?? 0;
   }
+
   static Future<String?> forgotPassword(String email) async {
     final url = Uri.parse("$baseUrl/auth/forgot_password.php");
 
@@ -110,9 +109,7 @@ class ApiService {
     return "Đã xảy ra lỗi không xác định";
   }
 
-
   // -------------------- SERVICES --------------------
-
   static Future<List<Service>> fetchServices() async {
     final response = await http.get(Uri.parse('$baseUrl/services/list_for_customer.php'));
     if (response.statusCode == 200 && response.body.isNotEmpty) {
@@ -143,23 +140,23 @@ class ApiService {
     int? serviceId,
     required List<ExtraService> extras,
     required String status,
+    List<String> deletedImages = const [],
+    List<String> remainingImages = const [], // Thêm danh sách ảnh còn lại
   }) async {
     final uri = Uri.parse(serviceId == null
         ? '$baseUrl/services/add.php'
         : '$baseUrl/services/update.php');
-
     final request = http.MultipartRequest('POST', uri)
       ..fields['name'] = name
       ..fields['description'] = description
       ..fields['price'] = price.toString()
-      ..fields['status'] = status;
-
+      ..fields['status'] = status
+      ..fields['deleted_images'] = jsonEncode(deletedImages)
+      ..fields['remaining_images'] = jsonEncode(remainingImages);
     if (serviceId != null) request.fields['id'] = serviceId.toString();
-
     for (var img in images) {
       request.files.add(await http.MultipartFile.fromPath('images[]', img.path));
     }
-
     if (extras.isNotEmpty) {
       final extrasJson = jsonEncode(extras.map((e) => {
         'main_service_id': e.mainServiceId?.toString(),
@@ -169,7 +166,6 @@ class ApiService {
       }).toList());
       request.fields['extras'] = extrasJson;
     }
-
     final response = await request.send();
     final body = await response.stream.bytesToString();
     return jsonDecode(body);
@@ -187,7 +183,6 @@ class ApiService {
   }
 
   // -------------------- EMPLOYEES --------------------
-
   static Future<List<Employee>> fetchEmployees({
     String name = '',
     String phone = '',
@@ -299,8 +294,7 @@ class ApiService {
     }
   }
 
-// -------------------- BOOKINGS (ADMIN) --------------------
-
+  // -------------------- BOOKINGS (ADMIN) --------------------
   static Future<List<Booking>> getBookings({String? search, String? status}) async {
     try {
       String url = '$baseUrl/employees/admin_get_bookings.php';
@@ -362,9 +356,7 @@ class ApiService {
     return false;
   }
 
-
   // -------------------- REVIEWS --------------------
-
   static Future<List<Map<String, dynamic>>> fetchReviews(int serviceId) async {
     final url = Uri.parse("$baseUrl/reviews/get_reviews_by_service.php?service_id=$serviceId");
     final response = await http.get(url);
@@ -388,6 +380,4 @@ class ApiService {
     }
     return null;
   }
-
-
 }

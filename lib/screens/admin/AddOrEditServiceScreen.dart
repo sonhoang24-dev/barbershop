@@ -21,10 +21,10 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
   late TextEditingController _titleController;
   late TextEditingController _descController;
   late TextEditingController _priceController;
-  String _selectedStatus = 'Đang hoạt động'; // Mặc định trạng thái
-
+  String _selectedStatus = 'Đang hoạt động';
   List<XFile> _selectedImages = [];
   List<String> _existingImages = [];
+  List<String> _deletedImages = []; // Track deleted images
   List<Map<String, dynamic>> _extras = [];
 
   @override
@@ -37,14 +37,14 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
           ? NumberFormat.decimalPattern('vi_VN').format(widget.service!.price)
           : '',
     );
-    _selectedStatus = widget.service?.status ?? 'Đang hoạt động'; // Khởi tạo trạng thái từ service
+    _selectedStatus = widget.service?.status ?? 'Đang hoạt động';
+    _existingImages = List<String>.from(widget.service?.images ?? []);
     _initializeExtras();
-    print('Initialized extras: $_extras'); // Debug log
+    print('Khởi tạo _existingImages: $_existingImages');
   }
 
   void _initializeExtras() {
     if (widget.service != null) {
-      _existingImages = List<String>.from(widget.service!.images ?? []);
       if (widget.service!.extras != null && widget.service!.extras.isNotEmpty) {
         _extras = widget.service!.extras.map((e) {
           return {
@@ -56,7 +56,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
             ),
           };
         }).toList();
-        print('Loaded extras from service: $_extras'); // Debug log
+        print('Loaded extras from service: $_extras');
       } else {
         print('No extras found in service, initializing default');
       }
@@ -67,7 +67,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
         'price': NumberFormat.decimalPattern('vi_VN').format(0.0),
         'priceController': TextEditingController(text: NumberFormat.decimalPattern('vi_VN').format(0.0)),
       });
-      print('Initialized default extras: $_extras'); // Debug log
+      print('Initialized default extras: $_extras');
     }
   }
 
@@ -120,7 +120,22 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
       return;
     }
 
-    print('Sending: {name: $name, price: $price, status: $_selectedStatus, extras: ${extrasList.map((e) => {'name': e.name, 'price': e.price, 'mainServiceId': e.mainServiceId}).toList()}, serviceId: ${isUpdate ? widget.service!.id : null}}');
+    // Chuẩn hóa _deletedImages để chỉ chứa phần base64
+    final cleanedDeletedImages = _deletedImages.map((img) {
+      return img.startsWith('data:image/jpeg;base64,')
+          ? img.substring('data:image/jpeg;base64,'.length)
+          : img;
+    }).toList();
+    print('Gửi _deletedImages: $cleanedDeletedImages');
+
+    // Tạo danh sách ảnh còn lại (chỉ lấy phần base64)
+    final remainingImages = _existingImages.map((img) {
+      return img.startsWith('data:image/jpeg;base64,')
+          ? img.substring('data:image/jpeg;base64,'.length)
+          : img;
+    }).toList();
+    print('Danh sách ảnh còn lại: $remainingImages');
+
     final result = await ApiService.addOrUpdateService(
       name: name,
       description: _descController.text.trim(),
@@ -128,15 +143,18 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
       images: _selectedImages,
       serviceId: isUpdate ? widget.service!.id : null,
       extras: extrasList,
-      status: _selectedStatus, // Gửi trạng thái lên API
+      status: _selectedStatus,
+      deletedImages: cleanedDeletedImages,
+      remainingImages: remainingImages, // Thêm danh sách ảnh còn lại
     );
 
     if (context.mounted) {
       print('API Response: $result');
-      if (result is Map<String, dynamic> && result['success'] == true) {
+      if (result['success'] == true) {
         if (result.containsKey('images')) {
           setState(() {
             _existingImages = List<String>.from(result['images']);
+            _deletedImages.clear();
           });
         }
         ScaffoldMessenger.of(context).showSnackBar(
@@ -146,30 +164,13 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
           ),
         );
         Navigator.pop(context, true);
-      } else if (result is Map<String, dynamic>) {
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Có lỗi xảy ra: ${result['message'] ?? 'Không xác định'}'),
             backgroundColor: Colors.redAccent,
           ),
         );
-      } else {
-        if (result == true) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(isUpdate ? 'Cập nhật thành công!' : 'Thêm thành công!'),
-              backgroundColor: Theme.of(context).primaryColor,
-            ),
-          );
-          Navigator.pop(context, true);
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Có lỗi xảy ra: ID, tên và giá phải hợp lệ'),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
       }
     }
   }
@@ -235,7 +236,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                         controller: _priceController,
                         decoration: InputDecoration(
                           labelText: 'Giá (VNĐ) *',
-                          hintText: 'Nhập giá (số dương, ví dụ: 10.000)',
+                          hintText: 'Nhập giá',
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                           filled: true,
                           fillColor: Colors.grey[100],
@@ -319,7 +320,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                       ),
                       const SizedBox(height: 12),
                       if (_selectedImages.isNotEmpty) _buildSelectedImageList(),
-                      if (_existingImages.isNotEmpty && widget.service != null) _buildExistingImageList(),
+                      if (_existingImages.isNotEmpty) _buildExistingImageList(),
                     ],
                   ),
                 ),
@@ -497,7 +498,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
   }
 
   Widget _buildExistingImageList() {
-    print('Existing images: $_existingImages'); // Debug log
+    print('Hiển thị _existingImages: $_existingImages');
     return SizedBox(
       height: 140,
       child: ListView.builder(
@@ -505,7 +506,9 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
         itemCount: _existingImages.length,
         itemBuilder: (context, index) {
           try {
-            final imgData = base64Decode(_existingImages[index].split(',').last);
+            final imgData = base64Decode(_existingImages[index].startsWith('data:image/jpeg;base64,')
+                ? _existingImages[index].substring('data:image/jpeg;base64,'.length)
+                : _existingImages[index]);
             return Stack(
               children: [
                 Container(
@@ -530,7 +533,11 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                   top: 8,
                   right: 8,
                   child: GestureDetector(
-                    onTap: () => setState(() => _existingImages.removeAt(index)),
+                    onTap: () => setState(() {
+                      _deletedImages.add(_existingImages[index]);
+                      _existingImages.removeAt(index);
+                      print('Đã thêm vào _deletedImages: ${_deletedImages.last}');
+                    }),
                     child: const CircleAvatar(
                       radius: 14,
                       backgroundColor: Colors.redAccent,
@@ -541,6 +548,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
               ],
             );
           } catch (e) {
+            print('Lỗi hiển thị ảnh: $e');
             return Container(
               height: 120,
               width: 120,

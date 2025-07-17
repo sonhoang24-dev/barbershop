@@ -37,7 +37,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
   Future<void> _loadServiceImages() async {
     try {
       final res = await http.get(Uri.parse(
-          "http://10.0.2.2/barbershop/backend/services/get_images.php?service_id=${booking['service_id']}"));
+          "http://192.168.1.210/barbershop/backend/services/get_images.php?service_id=${booking['service_id']}"));
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body);
         setState(() {
@@ -80,7 +80,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       if (userId == 0) throw Exception("Không tìm thấy user_id");
 
       final response = await http.post(
-        Uri.parse("http://10.0.2.2/barbershop/backend/employees/update_booking_status.php"),
+        Uri.parse("http://192.168.1.210/barbershop/backend/employees/update_booking_status.php"),
         headers: {"Content-Type": "application/json"},
         body: jsonEncode({
           "booking_id": booking['id'],
@@ -96,7 +96,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
         });
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text("Đã hủy lịch thành công.")),
+            const SnackBar(content: Text("Đã hủy lịch thành công."),
+            backgroundColor: Colors.green),
           );
           Navigator.pop(context, {
             'updated': true,
@@ -146,7 +147,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Đã gửi đánh giá thành công.")),
+          const SnackBar(content: Text("Đã gửi đánh giá thành công."),
+          backgroundColor: Colors.green),
         );
         Navigator.pop(context, {
           'updated': true,
@@ -221,7 +223,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                     itemBuilder: (context, index) => Padding(
                       padding: const EdgeInsets.only(right: 8.0),
                       child: Image.network(
-                        "http://10.0.2.2/barbershop/backend/${serviceImages[index]}",
+                        "http://192.168.1.210/barbershop/backend/${serviceImages[index]}",
                         width: 200,
                         fit: BoxFit.cover,
                         errorBuilder: (context, error, stackTrace) => const Icon(Icons.error, color: Colors.red),

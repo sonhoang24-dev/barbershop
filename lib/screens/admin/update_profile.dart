@@ -20,11 +20,16 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
   final _emailController = TextEditingController();
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   String? _gender;
   File? _avatarImage;
   int _userId = 0;
   String? _avatarBase64;
+  String? _oldPassword;
+  ImageProvider? _avatarProvider;
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
 
   @override
   void initState() {
@@ -41,7 +46,23 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
       _phoneController.text = prefs.getString('phone') ?? '';
       _gender = prefs.getString('gender');
       _avatarBase64 = prefs.getString('avatar');
+      _oldPassword = prefs.getString('raw_password') ?? '';
+      _updateAvatarProvider();
     });
+  }
+
+  void _updateAvatarProvider() {
+    if (_avatarImage != null) {
+      _avatarProvider = FileImage(_avatarImage!);
+    } else if (_avatarBase64 != null && _avatarBase64!.isNotEmpty) {
+      try {
+        _avatarProvider = MemoryImage(base64Decode(_avatarBase64!));
+      } catch (_) {
+        _avatarProvider = null;
+      }
+    } else {
+      _avatarProvider = null;
+    }
   }
 
   Future<void> _pickAvatar() async {
@@ -49,12 +70,35 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
     if (picked != null) {
       setState(() {
         _avatarImage = File(picked.path);
+        _updateAvatarProvider();
       });
     }
   }
 
   Future<void> _saveProfile() async {
     if (_formKey.currentState!.validate()) {
+      if (_passwordController.text.isNotEmpty && _passwordController.text == _oldPassword) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Mật khẩu mới không được giống mật khẩu cũ"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (_passwordController.text != _confirmPasswordController.text) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Mật khẩu mới và nhập lại không khớp"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       try {
         final prefs = await SharedPreferences.getInstance();
         String? base64Avatar;
@@ -68,7 +112,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
           id: _userId,
           name: _nameController.text,
           email: _emailController.text,
-          phone:_phoneController.text,
+          phone: _phoneController.text,
           gender: _gender,
           newPassword: _passwordController.text.isNotEmpty ? _passwordController.text : null,
           avatarBase64: base64Avatar,
@@ -80,12 +124,22 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
         if (_gender != null) await prefs.setString('gender', _gender!);
         if (base64Avatar != null) {
           await prefs.setString('avatar', base64Avatar);
-          setState(() => _avatarBase64 = base64Avatar);
+          setState(() {
+            _avatarBase64 = base64Avatar;
+            _updateAvatarProvider();
+          });
+        }
+        if (_passwordController.text.isNotEmpty) {
+          await prefs.setString('raw_password', _passwordController.text);
+          setState(() {
+            _oldPassword = _passwordController.text;
+          });
         }
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cập nhật thành công")),
+          const SnackBar(content: Text("Cập nhật thành công"),
+              backgroundColor: Colors.green),
         );
         Navigator.pop(context, true);
       } catch (e) {
@@ -109,26 +163,14 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
   }
 
   Widget _buildAvatarPreview() {
-    ImageProvider? image;
-
-    if (_avatarImage != null) {
-      image = FileImage(_avatarImage!);
-    } else if (_avatarBase64 != null && _avatarBase64!.isNotEmpty) {
-      try {
-        image = MemoryImage(base64Decode(_avatarBase64!));
-      } catch (_) {
-        image = null;
-      }
-    }
-
     return Stack(
       alignment: Alignment.bottomRight,
       children: [
         CircleAvatar(
           radius: 60,
           backgroundColor: Colors.white.withOpacity(0.1),
-          backgroundImage: image,
-          child: image == null
+          backgroundImage: _avatarProvider,
+          child: _avatarProvider == null
               ? const Icon(Icons.person, size: 60, color: Colors.white70)
               : null,
         ),
@@ -164,6 +206,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
     _emailController.dispose();
     _phoneController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -198,7 +241,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: Container(
-        height: MediaQuery.of(context).size.height, // Đảm bảo chiếm toàn bộ chiều cao
+        height: MediaQuery.of(context).size.height,
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             colors: [Color(0xff0f2027), Color(0xff203a43), Color(0xff2c5364)],
@@ -209,7 +252,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
         child: SingleChildScrollView(
           padding: EdgeInsets.fromLTRB(
             24,
-            MediaQuery.of(context).padding.top + 80, // Padding để tránh thanh trạng thái
+            MediaQuery.of(context).padding.top + 80,
             24,
             20,
           ),
@@ -219,9 +262,9 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
               children: [
                 _buildAvatarPreview(),
                 const SizedBox(height: 30),
-                _buildTextField("Họ tên", _nameController),
-                _buildTextField("Email", _emailController, validator: true),
-                _buildTextField("Số điện thoại", _phoneController),
+                _buildPasswordField("Họ tên", _nameController, isPassword: false, validator: false),
+                _buildPasswordField("Email", _emailController, isPassword: false, validator: true),
+                _buildPasswordField("Số điện thoại", _phoneController, isPassword: false, validator: false),
                 DropdownButtonFormField<String>(
                   value: _gender?.isNotEmpty == true ? _gender : null,
                   decoration: _inputDecoration("Giới tính"),
@@ -235,7 +278,8 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
                   onChanged: (value) => setState(() => _gender = value),
                 ),
                 const SizedBox(height: 16),
-                _buildTextField("Mật khẩu mới (nếu đổi)", _passwordController, isPassword: true),
+                _buildPasswordField("Mật khẩu mới (nếu đổi)", _passwordController, isPassword: true),
+                _buildPasswordField("Nhập lại mật khẩu mới", _confirmPasswordController, isPassword: true, confirm: true),
                 const SizedBox(height: 30),
                 SizedBox(
                   width: double.infinity,
@@ -263,18 +307,37 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller,
-      {bool isPassword = false, bool validator = false}) {
+  Widget _buildPasswordField(String label, TextEditingController controller,
+      {bool isPassword = false, bool validator = false, bool confirm = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: TextFormField(
         controller: controller,
-        obscureText: isPassword,
-        validator: validator
-            ? (value) => value!.isEmpty ? "Không được để trống" : null
-            : null,
+        obscureText: isPassword ? (confirm ? !_isConfirmPasswordVisible : !_isPasswordVisible) : false,
+        validator: (value) {
+          if (validator && value!.isEmpty) return "Không được để trống";
+          if (!isPassword && value!.isEmpty) return "Không được để trống";
+          return null;
+        },
         style: const TextStyle(color: Colors.white),
-        decoration: _inputDecoration(label),
+        decoration: _inputDecoration(label).copyWith(
+          suffixIcon: isPassword
+              ? IconButton(
+            icon: Icon(
+              confirm
+                  ? (_isConfirmPasswordVisible ? Icons.visibility : Icons.visibility_off)
+                  : (_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
+              color: Colors.white70,
+            ),
+            onPressed: () {
+              setState(() {
+                if (confirm) _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                else _isPasswordVisible = !_isPasswordVisible;
+              });
+            },
+          )
+              : null,
+        ),
       ),
     );
   }

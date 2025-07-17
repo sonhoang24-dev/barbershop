@@ -1,15 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
 import 'booking_detail_screen.dart';
 
 class BookingListScreen extends StatefulWidget {
-  const BookingListScreen({super.key});
+  final VoidCallback? onNotificationChanged;
+  const BookingListScreen({super.key, this.onNotificationChanged});
 
   @override
   State<BookingListScreen> createState() => _BookingListScreenState();
@@ -22,6 +21,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   bool isLoading = true;
   bool hasNewStatus = false;
   Timer? _pollingTimer;
+  DateTime? _lastLoadTime;
 
   @override
   void initState() {
@@ -54,53 +54,58 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   }
 
   Future<void> _loadBookings() async {
+    final now = DateTime.now();
+    if (_lastLoadTime != null && now.difference(_lastLoadTime!).inSeconds < 60) {
+      return;
+    }
+    _lastLoadTime = now;
+
     setState(() => isLoading = true);
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('id') ?? 0;
-    final url = Uri.parse("http://10.0.2.2/barbershop/backend/services/get_bookings_by_user.php?user_id=$userId");
+    final url = Uri.parse("http://192.168.1.210/barbershop/backend/services/get_bookings_by_user.php?user_id=$userId");
     try {
       final res = await http.get(url).timeout(const Duration(seconds: 10));
-      print('Status Code: ${res.statusCode}, Response Body: ${res.body}');
       if (res.statusCode == 200) {
         final json = jsonDecode(res.body);
         if (json['success'] == true && json['data'] is List) {
           final List<Map<String, dynamic>> newBookings = List<Map<String, dynamic>>.from(json['data']);
           newBookings.sort((a, b) => DateTime.parse(b['created_at']).compareTo(DateTime.parse(a['created_at'])));
 
-          List<String> oldStatus = prefs.getStringList('booking_status_list') ?? [];
-          List<String> newStatus = newBookings.map((e) => '${e['id']}:${e['status']}').toList();
-          bool changed = false;
+          final oldStatusList = prefs.getStringList('booking_status_list') ?? [];
+          final Map<String, String> oldStatusMap = {
+            for (var status in oldStatusList) status.split(':')[0]: status.split(':')[1]
+          };
+
+          final newStatus = newBookings.map((e) => '${e['id']}:${e['status']}').toList();
+          final Map<String, String> newStatusMap = {
+            for (var status in newStatus) status.split(':')[0]: status.split(':')[1]
+          };
+
           List<Map<String, dynamic>> tempNotifications = List.from(notifications);
 
-          if (oldStatus.length == newStatus.length) {
-            for (int i = 0; i < newStatus.length; i++) {
-              if (oldStatus[i] != newStatus[i]) {
-                changed = true;
-                final bookingId = newStatus[i].split(':')[0];
-                final newBookingStatus = newStatus[i].split(':')[1];
-                final booking = newBookings.firstWhere((b) => b['id'].toString() == bookingId, orElse: () => {});
-                if (booking.isNotEmpty) {
-                  final serviceName = booking['service'] ?? 'Dịch vụ';
-                  final date = booking['date'] ?? 'N/A';
-                  final time = booking['time']?.substring(0, 5) ?? 'N/A';
-                  final formattedDateTime = _formatBookingDateTime(date, time);
-                  tempNotifications.add({
-                    'message': 'Lịch hẹn $serviceName vào $formattedDateTime đã được cập nhật thành: $newBookingStatus',
-                    'timestamp': DateTime.now().toIso8601String(),
-                  });
-                }
-              }
+          for (var booking in newBookings) {
+            final bookingId = booking['id'].toString();
+            final newBookingStatus = booking['status'];
+            final oldBookingStatus = oldStatusMap[bookingId];
+
+            if (oldBookingStatus != null && oldBookingStatus != newBookingStatus) {
+              final serviceName = booking['service'] ?? 'Dịch vụ';
+              final date = booking['date'] ?? 'N/A';
+              final time = booking['time']?.substring(0, 5) ?? 'N/A';
+              final formattedDateTime = _formatBookingDateTime(date, time);
+              tempNotifications.add({
+                'message': 'Lịch hẹn $serviceName vào $formattedDateTime đã được cập nhật thành: $newBookingStatus',
+                'timestamp': DateTime.now().toIso8601String(),
+              });
             }
-          } else {
-            changed = true;
-            tempNotifications.add({
-              'message': 'Danh sách lịch hẹn có thay đổi',
-              'timestamp': DateTime.now().toIso8601String(),
-            });
           }
 
           await prefs.setStringList('booking_status_list', newStatus);
-          await prefs.setStringList('notifications', tempNotifications.map((n) => jsonEncode(n)).toList());
+          await prefs.setStringList(
+            'notifications',
+            tempNotifications.map((n) => jsonEncode(n)).toList(),
+          );
 
           setState(() {
             bookings = newBookings;
@@ -108,6 +113,8 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
             hasNewStatus = tempNotifications.any((n) => !viewedNotifications.contains(n['timestamp']));
             isLoading = false;
           });
+
+          widget.onNotificationChanged?.call();
         } else {
           setState(() {
             bookings = [];
@@ -118,7 +125,10 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
         setState(() => isLoading = false);
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Không thể tải lịch đặt. Vui lòng kiểm tra kết nối.')),
+            const SnackBar(
+              content: Text('Không thể tải lịch đặt. Vui lòng kiểm tra kết nối.'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -126,7 +136,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
       setState(() => isLoading = false);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi: $e. Vui lòng thử lại sau.')),
+          SnackBar(content: Text('Lỗi: $e. Vui lòng thử lại sau.'), backgroundColor: Colors.red),
         );
       }
       print('Error: $e');
@@ -143,6 +153,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
       viewedNotifications = viewed;
       hasNewStatus = notifications.any((n) => !viewedNotifications.contains(n['timestamp']));
     });
+    widget.onNotificationChanged?.call();
   }
 
   Future<void> _markNotificationsAsViewed() async {
@@ -153,6 +164,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
       viewedNotifications = viewed;
       hasNewStatus = false;
     });
+    widget.onNotificationChanged?.call();
   }
 
   String _formatBookingDateTime(String date, String time) {
@@ -189,17 +201,17 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   Map<String, dynamic> _getStatusInfo(String status) {
     switch (status) {
       case 'Chờ xác nhận':
-        return {'color': Colors.orange, 'icon': Icons.circle_outlined};
+        return {'color': Colors.orange, 'icon': Icons.schedule};
       case 'Đã xác nhận':
-        return {'color': Colors.green, 'icon': Icons.check_circle};
+        return {'color': Colors.blueAccent, 'icon': Icons.verified};
       case 'Đang thực hiện':
-        return {'color': Colors.purple, 'icon': Icons.hourglass_top};
+        return {'color': Colors.deepPurple, 'icon': Icons.work_history};
       case 'Đã hoàn thành':
-        return {'color': Colors.green, 'icon': Icons.check_circle};
+        return {'color': Colors.green, 'icon': Icons.task_alt};
       case 'Đã huỷ':
-        return {'color': Colors.red, 'icon': Icons.cancel};
+        return {'color': Colors.redAccent, 'icon': Icons.cancel_schedule_send};
       default:
-        return {'color': Colors.grey, 'icon': Icons.help};
+        return {'color': Colors.grey, 'icon': Icons.help_outline};
     }
   }
 
@@ -236,14 +248,19 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                 viewedNotifications = [];
                 hasNewStatus = false;
               });
-              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) {
+                Navigator.pop(context);
+                widget.onNotificationChanged?.call();
+              }
             },
           ),
           TextButton(
             child: const Text('Đóng'),
             onPressed: () async {
               await _markNotificationsAsViewed();
-              if (context.mounted) Navigator.pop(context);
+              if (context.mounted) {
+                Navigator.pop(context);
+              }
             },
           ),
         ],
@@ -337,7 +354,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                   final formattedDateTime = _formatBookingDateTime(date, time);
                   final newStatus = result['new_status'] ?? 'Không xác định';
                   final message = newStatus == 'Đã huỷ'
-                      ? 'Bạn đã hủy Lịch hẹn ${booking['service']} vào $formattedDateTime đã được cập nhật thành: $newStatus'
+                      ? 'Bạn đã hủy lịch hẹn ${booking['service']} vào $formattedDateTime đã được cập nhật thành: $newStatus'
                       : 'Lịch hẹn ${booking['service']} vào $formattedDateTime đã được cập nhật thành: $newStatus';
                   final prefs = await SharedPreferences.getInstance();
                   final tempNotifications = List<Map<String, dynamic>>.from(notifications);
@@ -353,6 +370,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                     notifications = tempNotifications;
                     hasNewStatus = true;
                   });
+                  widget.onNotificationChanged?.call();
                 }
               },
               leading: Icon(

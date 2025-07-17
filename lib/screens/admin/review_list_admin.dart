@@ -16,6 +16,7 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
   int? selectedRating;
   int? selectedServiceId;
   bool isLoading = false;
+  String? errorMessage;
 
   @override
   void initState() {
@@ -25,20 +26,48 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
   }
 
   Future<void> fetchServices() async {
-    setState(() => isLoading = true);
-    final res = await http.get(Uri.parse('http://10.0.2.2/barbershop/backend/services/get_services.php'));
-    if (res.statusCode == 200) {
-      final jsonData = json.decode(res.body);
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+    try {
+      final res = await http.get(Uri.parse('http://192.168.1.210/barbershop/backend/services/get_services.php'));
+      if (res.statusCode == 200) {
+        final jsonData = json.decode(res.body);
+        if (jsonData['data'] != null) {
+          setState(() {
+            services = jsonData['data'];
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            services = [];
+            isLoading = false;
+            errorMessage = 'Không tìm thấy dịch vụ';
+          });
+        }
+      } else {
+        setState(() {
+          services = [];
+          isLoading = false;
+          errorMessage = 'Lỗi khi tải dịch vụ: ${res.statusCode}';
+        });
+      }
+    } catch (e) {
       setState(() {
-        services = jsonData['data'];
+        services = [];
         isLoading = false;
+        errorMessage = 'Lỗi kết nối: $e';
       });
     }
   }
 
   Future<void> fetchReviews() async {
-    setState(() => isLoading = true);
-    String url = 'http://10.0.2.2/barbershop/backend/reviews/get_reviews.php';
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+    String url = 'http://192.168.1.210/barbershop/backend/reviews/get_reviews.php';
     List<String> params = [];
 
     if (selectedRating != null) params.add('rating=$selectedRating');
@@ -50,15 +79,21 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
       if (res.statusCode == 200) {
         final jsonData = json.decode(res.body);
         setState(() {
-          reviews = jsonData['success'] ? jsonData['data'] : [];
+          reviews = jsonData['success'] ? jsonData['data'] ?? [] : [];
           isLoading = false;
+        });
+      } else {
+        setState(() {
+          reviews = [];
+          isLoading = false;
+          errorMessage = 'Lỗi khi tải đánh giá: ${res.statusCode}';
         });
       }
     } catch (e) {
-      print("Lỗi API: $e");
       setState(() {
         reviews = [];
         isLoading = false;
+        errorMessage = 'Lỗi kết nối: $e';
       });
     }
   }
@@ -110,8 +145,8 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
             value: selectedServiceId,
             items: services.map<DropdownMenuItem<int>>((s) {
               return DropdownMenuItem(
-                value: int.tryParse(s['id'].toString()),
-                child: Text(s['name'], style: const TextStyle(fontSize: 14)),
+                value: int.tryParse(s['id'].toString()) ?? 0,
+                child: Text(s['name']?.toString() ?? 'Không xác định', style: const TextStyle(fontSize: 14)),
               );
             }).toList(),
             onChanged: (value) {
@@ -166,21 +201,23 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              Text(review['customer_name'], style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-              Text(review['service_name'], style: TextStyle(color: Colors.teal[700], fontWeight: FontWeight.w500)),
+              Text(review['customer_name']?.toString() ?? 'Không xác định',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+              Text(review['service_name']?.toString() ?? 'Không xác định',
+                  style: TextStyle(color: Colors.teal[700], fontWeight: FontWeight.w500)),
             ]),
             const SizedBox(height: 8),
             Row(
               children: List.generate(
-                int.parse(review['rating'].toString()),
+                int.tryParse(review['rating']?.toString() ?? '0') ?? 0,
                     (_) => const Icon(Icons.star, color: Colors.amber, size: 20),
               ),
             ),
             const SizedBox(height: 8),
             if ((review['feedback'] ?? '').toString().isNotEmpty)
-              Text(review['feedback'], style: TextStyle(fontSize: 14, color: Colors.grey[800])),
+              Text(review['feedback'].toString(), style: TextStyle(fontSize: 14, color: Colors.grey[800])),
             const SizedBox(height: 8),
-            Text('Ngày đánh giá: ${review['reviewed_at']}',
+            Text('Ngày đánh giá: ${review['reviewed_at']?.toString() ?? 'Không xác định'}',
                 style: TextStyle(fontSize: 12, color: Colors.grey[600], fontStyle: FontStyle.italic)),
             if (review['price'] != null)
               Text('Giá: ${_formatPrice(review['price'])} đ',
@@ -202,31 +239,43 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
         centerTitle: true,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            buildFilter(),
-            const SizedBox(height: 16),
-            Expanded(
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator(color: Colors.teal))
-                  : reviews.isEmpty
-                  ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.rate_review_outlined, size: 48, color: Colors.grey[400]),
-                    const SizedBox(height: 8),
-                    Text("Không có đánh giá nào", style: TextStyle(color: Colors.grey[600])),
-                  ],
+        padding: const EdgeInsets.only(left: 10), // Dịch chuyển nội dung sang phải 10 pixel
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            children: [
+              buildFilter(),
+              const SizedBox(height: 16),
+              if (errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Text(
+                    errorMessage!,
+                    style: const TextStyle(color: Colors.red, fontSize: 14, fontWeight: FontWeight.w500),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              )
-                  : ListView.builder(
-                itemCount: reviews.length,
-                itemBuilder: (_, i) => buildReviewItem(reviews[i]),
+              Expanded(
+                child: isLoading
+                    ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+                    : reviews.isEmpty
+                    ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.rate_review_outlined, size: 48, color: Colors.grey[400]),
+                      const SizedBox(height: 8),
+                      Text("Không có đánh giá nào", style: TextStyle(color: Colors.grey[600])),
+                    ],
+                  ),
+                )
+                    : ListView.builder(
+                  itemCount: reviews.length,
+                  itemBuilder: (_, i) => buildReviewItem(reviews[i]),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

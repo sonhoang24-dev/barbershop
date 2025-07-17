@@ -44,7 +44,7 @@ class AdminDashboard extends StatelessWidget {
             _buildTile(
               context,
               icon: Icons.people_alt_rounded,
-              label: 'Quản lý nhân viên',
+              label: 'Nhân viên',
               color: Colors.blueAccent,
               onTap: () => Navigator.push(
                 context,
@@ -54,7 +54,7 @@ class AdminDashboard extends StatelessWidget {
             _buildTile(
               context,
               icon: Icons.design_services,
-              label: 'Quản lý dịch vụ',
+              label: 'Dịch vụ',
               color: Colors.orange,
               onTap: () => Navigator.push(
                 context,
@@ -84,7 +84,7 @@ class AdminDashboard extends StatelessWidget {
             _buildTile(
               context,
               icon: Icons.bar_chart,
-              label: 'Thống kê - báo cáo',
+              label: 'Thống kê',
               color: Colors.deepPurple,
               onTap: () => Navigator.push(
                 context,

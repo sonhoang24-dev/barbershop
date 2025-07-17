@@ -6,8 +6,19 @@ class User {
   final String phone;
   final String role;
   final String avatar;
-
-  User({required this.id, required this.name, required this.email, required this.role, required this.gender, required this.phone, required this.avatar});
+  final String password;
+  final String? rawPassword;
+  User({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.role,
+    required this.gender,
+    required this.phone,
+    required this.avatar,
+    required this.password,
+    this.rawPassword,
+  });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
@@ -18,6 +29,7 @@ class User {
       phone: json['phone'],
       role: json['role'],
       avatar: json['avatar'],
+      password: json['password'] ?? '',
     );
   }
 }
