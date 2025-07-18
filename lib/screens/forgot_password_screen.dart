@@ -32,7 +32,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       final res = await http.post(
-        Uri.parse('http://192.168.1.210/barbershop/backend/auth/forgot_password.php'),
+        Uri.parse('https://htdvapple.site/barbershop/backend/auth/forgot_password.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'email': email}),
       );

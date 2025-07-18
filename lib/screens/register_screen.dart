@@ -92,7 +92,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     try {
       final res = await http.post(
-        Uri.parse('http://192.168.1.210/barbershop/backend/auth/register.php'),
+        Uri.parse('https://htdvapple.site/barbershop/backend/auth/register.php'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'name': name,

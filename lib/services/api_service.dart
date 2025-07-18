@@ -9,7 +9,7 @@ import '../models/employee.dart';
 import '../models/booking.dart';
 
 class ApiService {
-  static const String baseUrl = "http://192.168.1.210/barbershop/backend";
+  static const String baseUrl = "https://htdvapple.site/barbershop/backend";
 
   // -------------------- AUTH --------------------
   static Future<User?> login(String email, String password) async {

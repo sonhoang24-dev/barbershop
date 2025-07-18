@@ -63,7 +63,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
     setState(() => isLoading = true);
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('id') ?? 0;
-    final url = Uri.parse("http://192.168.1.210/barbershop/backend/services/get_bookings_by_user.php?user_id=$userId");
+    final url = Uri.parse("https://htdvapple.site/barbershop/backend/services/get_bookings_by_user.php?user_id=$userId");
     try {
       final res = await http.get(url).timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {

@@ -66,7 +66,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _loadEmployees() async {
-    final res = await http.get(Uri.parse("http://192.168.1.210/barbershop/backend/employees/get_by_service.php?service_id=${service['id'] ?? 0}"));
+    final res = await http.get(Uri.parse("https://htdvapple.site/barbershop/backend/employees/get_by_service.php?service_id=${service['id'] ?? 0}"));
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       setState(() {
@@ -76,7 +76,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _loadExtras() async {
-    final res = await http.get(Uri.parse("http://192.168.1.210/barbershop/backend/services/get_extras.php?service_id=${service['id'] ?? 0}"));
+    final res = await http.get(Uri.parse("https://htdvapple.site/barbershop/backend/services/get_extras.php?service_id=${service['id'] ?? 0}"));
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       setState(() {
@@ -98,7 +98,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _loadImages() async {
-    final res = await http.get(Uri.parse("http://192.168.1.210/barbershop/backend/services/get_images.php?service_id=${service['id'] ?? 0}"));
+    final res = await http.get(Uri.parse("https://htdvapple.site/barbershop/backend/services/get_images.php?service_id=${service['id'] ?? 0}"));
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       setState(() {
@@ -108,7 +108,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   }
 
   Future<void> _loadBookedTimes(int employeeId) async {
-    final res = await http.get(Uri.parse("http://192.168.1.210/barbershop/backend/employees/get_booked_times.php?employee_id=$employeeId"));
+    final res = await http.get(Uri.parse("https://htdvapple.site/barbershop/backend/employees/get_booked_times.php?employee_id=$employeeId"));
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       setState(() {
@@ -188,7 +188,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     };
 
     final response = await http.post(
-      Uri.parse("http://192.168.1.210/barbershop/backend/services/save_booking.php"),
+      Uri.parse("https://htdvapple.site/barbershop/backend/services/save_booking.php"),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode(body),
     );
@@ -244,7 +244,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                   itemBuilder: (context, index) => Padding(
                     padding: const EdgeInsets.only(right: 8.0),
                     child: Image.network(
-                      "http://192.168.1.210/barbershop/backend/${serviceImages[index]}",
+                      "https://htdvapple.site/barbershop/backend/${serviceImages[index]}",
                       width: 200,
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {

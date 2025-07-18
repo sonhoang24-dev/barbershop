@@ -31,7 +31,7 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
       errorMessage = null;
     });
     try {
-      final res = await http.get(Uri.parse('http://192.168.1.210/barbershop/backend/services/get_services.php'));
+      final res = await http.get(Uri.parse('https://htdvapple.site/barbershop/backend/services/get_services.php'));
       if (res.statusCode == 200) {
         final jsonData = json.decode(res.body);
         if (jsonData['data'] != null) {
@@ -67,7 +67,7 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
       isLoading = true;
       errorMessage = null;
     });
-    String url = 'http://192.168.1.210/barbershop/backend/reviews/get_reviews.php';
+    String url = 'https://htdvapple.site/barbershop/backend/reviews/get_reviews.php';
     List<String> params = [];
 
     if (selectedRating != null) params.add('rating=$selectedRating');

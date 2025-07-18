@@ -33,7 +33,7 @@ class _StatisticsDashboardScreenState extends State<StatisticsDashboardScreen> {
     setState(() => isLoading = true);
 
     final url = Uri.parse(
-        'http://192.168.1.210/barbershop/backend/auth/get_dashboard_stats.php?start_date=${startDate!.toIso8601String().substring(0, 10)}&end_date=${endDate!.toIso8601String().substring(0, 10)}');
+        'https://htdvapple.site/barbershop/backend/auth/get_dashboard_stats.php?start_date=${startDate!.toIso8601String().substring(0, 10)}&end_date=${endDate!.toIso8601String().substring(0, 10)}');
 
     try {
       final res = await http.get(url);
