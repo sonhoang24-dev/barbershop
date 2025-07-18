@@ -720,7 +720,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Giờ làm: ${emp.workingHours}',
+                    'Giờ làm: \n${emp.workingHours}',
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 4),

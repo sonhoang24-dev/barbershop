@@ -3,7 +3,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
-import 'dart:io' show Platform;
 
 class ShopInfoScreen extends StatefulWidget {
   const ShopInfoScreen({super.key});
@@ -16,7 +15,7 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
   GoogleMapController? _mapController;
   final LatLng shopLocation = const LatLng(10.0467807, 105.7680453);
   final String shopAddress = '256 Đ. Nguyễn Văn Cừ, An Hoà, Ninh Kiều, Cần Thơ';
-  final String phoneNumber = '0988888367';
+  final String phoneNumber = '02923898167';
   bool _isMapLoading = true;
 
   @override
@@ -44,13 +43,6 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
     }
   }
 
-  Future<void> _requestPhonePermission() async {
-    final status = await Permission.phone.request();
-    if (!status.isGranted) {
-      _showError('Cần cấp quyền gọi điện để thực hiện cuộc gọi');
-    }
-  }
-
   void _onMapCreated(GoogleMapController controller) {
     if (_mapController == null) {
       _mapController = controller;
@@ -73,23 +65,16 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
   }
 
   Future<void> _dialPhone() async {
-    await _requestPhonePermission();
+    final Uri url = Uri(scheme: 'tel', path: phoneNumber);
 
-    final Uri url = Platform.isAndroid
-        ? Uri.parse('tel:$phoneNumber')
-        : Uri.parse('telprompt:$phoneNumber');
-
-    debugPrint('Trying to launch URL: $url');
     try {
       if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.platformDefault);
+        await launchUrl(url, mode: LaunchMode.externalApplication);
       } else {
-        debugPrint('Failed to launch URL: $url. No default app found.');
-        _showError('Không thể mở ứng dụng điện thoại. Vui lòng kiểm tra cài đặt.');
+        _showError('Không thể mở ứng dụng điện thoại. Vui lòng kiểm tra cài đặt hoặc chạy trên thiết bị thật.');
       }
     } catch (e) {
-      debugPrint('Error launching URL: $e');
-      _showError('Đã xảy ra lỗi khi mở ứng dụng điện thoại');
+      _showError('Đã xảy ra lỗi khi mở ứng dụng điện thoại: $e');
     }
   }
 
@@ -100,7 +85,6 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
   String getWorkingStatus() {
     final now = TimeOfDay.now();
     final totalMinutes = now.hour * 60 + now.minute;
-    final currentDate = DateTime.now();
 
     final caSang = (8 * 60, 12 * 60);
     final caChieu = (13 * 60, 17 * 60);
@@ -110,13 +94,16 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
         (totalMinutes >= caChieu.$1 && totalMinutes <= caChieu.$2) ||
         (totalMinutes >= caToi.$1 && totalMinutes <= caToi.$2);
 
-    if (!isOpen && totalMinutes > caToi.$2) {
-      final nextOpen = DateTime(currentDate.year, currentDate.month, currentDate.day + 1, 8);
-      return "Sắp đóng cửa - Mở cửa lại vào ${DateFormat('HH:mm').format(nextOpen)}";
-    } else if (!isOpen && totalMinutes < caSang.$1) {
-      return "Sắp đóng cửa - Mở cửa lại vào 08:00";
+    if (isOpen) {
+      if ((totalMinutes >= caSang.$2 - 30 && totalMinutes <= caSang.$2) ||
+          (totalMinutes >= caChieu.$2 - 30 && totalMinutes <= caChieu.$2) ||
+          (totalMinutes >= caToi.$2 - 30 && totalMinutes <= caToi.$2)) {
+        return "Sắp đóng cửa";
+      }
+      return "Đang mở cửa";
+    } else {
+      return "Đã đóng cửa";
     }
-    return "Đang mở cửa";
   }
 
   @override
@@ -206,7 +193,7 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
                         status,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: status.contains("Đang") ? Colors.green : Colors.red,
+                          color: status.contains("Đang") ? Colors.green : status.contains("Sắp") ? Colors.orange : Colors.red,
                         ),
                       ),
                     ],
@@ -232,7 +219,7 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
                   child: GestureDetector(
                     onTap: _dialPhone,
                     child: Text(
-                      phoneNumber,
+                      '$phoneNumber',
                       style: const TextStyle(
                         fontSize: 16,
                         color: Colors.blue,

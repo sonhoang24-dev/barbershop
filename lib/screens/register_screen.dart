@@ -25,7 +25,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _agreedToTerms = false;
   String? _error;
 
-  // Chỉ kiểm tra các trường có dữ liệu hay không
   bool get _isFilled =>
       _nameController.text.trim().isNotEmpty &&
           _emailController.text.trim().isNotEmpty &&
@@ -33,11 +32,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
           _passwordController.text.trim().isNotEmpty &&
           _confirmPasswordController.text.trim().isNotEmpty;
 
-  // Kích hoạt nút khi các trường có dữ liệu và checkbox được tích
   bool get _isValid => _isFilled && _agreedToTerms;
 
   Future<void> _register() async {
-    // Kiểm tra các trường trống
     if (!_isFilled) {
       String errorMessage = "Vui lòng điền đầy đủ: ";
       if (_nameController.text.trim().isEmpty) errorMessage += "Họ tên, ";
@@ -50,33 +47,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    // Kiểm tra định dạng email
     final email = _emailController.text.trim();
     if (!RegExp(r'^[\w-\.]+@gmail\.com$').hasMatch(email)) {
       setState(() => _error = "Email phải có định dạng hợp lệ và kết thúc bằng @gmail.com");
       return;
     }
 
-    // Kiểm tra số điện thoại (10 số)
     final phone = _phoneController.text.trim();
     if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
       setState(() => _error = "Số điện thoại phải có đúng 10 số");
       return;
     }
 
-    // Kiểm tra mật khẩu khớp
     if (_passwordController.text.trim() != _confirmPasswordController.text.trim()) {
       setState(() => _error = "Mật khẩu và xác nhận mật khẩu không khớp");
       return;
     }
 
-    // Kiểm tra độ dài mật khẩu
     if (_passwordController.text.trim().length < 6) {
       setState(() => _error = "Mật khẩu phải có ít nhất 6 ký tự");
       return;
     }
 
-    // Kiểm tra checkbox điều khoản
     if (!_agreedToTerms) {
       setState(() => _error = "Vui lòng đồng ý với điều khoản và điều kiện");
       return;
@@ -103,6 +95,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         }),
       );
 
+      print('API Response Status: ${res.statusCode}');
+      print('API Response Body: ${res.body}');
+
       final data = jsonDecode(res.body);
       setState(() => _loading = false);
 
@@ -112,9 +107,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
         Navigator.pop(context);
       } else {
-        setState(() => _error = data['message']);
+        setState(() => _error = data['message'] ?? 'Đăng ký thất bại, không có thông tin lỗi');
       }
     } catch (e) {
+      print('Error during registration: $e');
       setState(() {
         _loading = false;
         _error = "Lỗi kết nối: $e";
@@ -141,7 +137,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
         keyboardType: keyboardType,
         inputFormatters: inputFormatters,
         style: const TextStyle(color: Colors.black87, fontSize: 16),
-        onChanged: (value) => setState(() {}),
+        onChanged: (value) {
+          setState(() {
+            _error = null;
+          });
+        },
         decoration: InputDecoration(
           labelText: label,
           prefixIcon: icon != null ? Icon(icon, color: Colors.teal[600]) : null,
@@ -170,8 +170,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Điều khoản và Điều kiện",
-            style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold)),
+        title: const Text("Điều khoản & Điều kiện",
+            style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 20)),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -314,6 +314,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     tileColor: Colors.grey[50],
                   ),
                   const SizedBox(height: 15),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Text(
+                        _error!,
+                        style: const TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
                   _loading
                       ? const Center(child: CircularProgressIndicator(color: Colors.teal))
                       : ElevatedButton(

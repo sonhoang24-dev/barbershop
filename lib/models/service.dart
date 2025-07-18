@@ -23,7 +23,7 @@ class Service {
   final double price;
   final List<String> images;
   final double rating;
-  final String status; // Thêm status
+  final String status;
   final List<ExtraService> extras;
 
   Service({

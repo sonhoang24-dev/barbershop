@@ -63,22 +63,34 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
         status: _selectedStatus == 'Tất cả' ? '' : _selectedStatus,
       );
     });
-    final bookings = await _futureBookings;
-    if (mounted && bookings != null) {
-      bookings.sort((a, b) {
-        if (a.status == 'Chờ xác nhận' && b.status != 'Chờ xác nhận') {
-          return -1;
-        } else if (a.status != 'Chờ xác nhận' && b.status == 'Chờ xác nhận') {
-          return 1;
-        } else {
-          final dateTimeA = DateTime.parse('${a.date.toString().split(' ')[0]} ${a.time ?? "00:00"}');
-          final dateTimeB = DateTime.parse('${b.date.toString().split(' ')[0]} ${b.time ?? "00:00"}');
-          return dateTimeB.compareTo(dateTimeA);
+    try {
+      final bookings = await _futureBookings;
+      if (bookings != null) {
+        for (var booking in bookings) {
+          print('Booking ID: ${booking.id}, createdAt: ${booking.createdAt}, customerName: ${booking.customerName}, serviceName: ${booking.serviceName}, status: ${booking.status}');
         }
-      });
-      setState(() {
-        isLoading = false;
-      });
+        // Sắp xếp theo createdAt giảm dần (mới nhất lên đầu)
+        bookings.sort((a, b) {
+          final dateTimeA = a.createdAt != null ? DateTime.tryParse(a.createdAt!) ?? DateTime(1970) : DateTime(1970);
+          final dateTimeB = b.createdAt != null ? DateTime.tryParse(b.createdAt!) ?? DateTime(1970) : DateTime(1970);
+          return dateTimeB.compareTo(dateTimeA); // Newest first
+        });
+      }
+      if (mounted && bookings != null) {
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching bookings: $e');
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Lỗi tải danh sách đặt lịch: $e")),
+        );
+      }
     }
   }
 
@@ -303,7 +315,6 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                 ],
               ),
 
-
               /// tổng tiền
               if (booking.total != null && booking.total! > 0) ...[
                 const SizedBox(height: 12),
@@ -322,6 +333,8 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                   ],
                 ),
               ],
+
+              /// Tạo lúc
               if (booking.createdAt != null && booking.createdAt!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Row(
@@ -344,7 +357,6 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {

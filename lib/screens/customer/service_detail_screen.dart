@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import '../../services/api_service.dart';
 import 'package:intl/intl.dart';
 
@@ -25,6 +26,15 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   Future<void> _fetchReviews() async {
     try {
       final fetched = await ApiService.fetchReviews(widget.service['id']);
+      print("Fetched reviews: $fetched");
+
+      // Sắp xếp reviews theo thời gian giảm dần
+      fetched.sort((a, b) {
+        final dateA = DateTime.tryParse(a['reviewed_at'] ?? '') ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['reviewed_at'] ?? '') ?? DateTime.now();
+        return dateB.compareTo(dateA); // Mới nhất lên đầu
+      });
+
       setState(() {
         reviews = fetched;
         loading = false;
@@ -168,6 +178,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
     int fullStars = rating.floor();
     bool halfStar = (rating - fullStars) >= 0.5;
 
+
+
     return Row(
       children: [
         ...List.generate(fullStars, (_) => const Icon(Icons.star, color: Colors.amber)),
@@ -180,9 +192,22 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
   }
 
   Widget _buildReviewCard(Map<String, dynamic> review) {
-    final name = review["name"] ?? "Ẩn danh";
+    final rawName = review["name"] ?? review["customer_name"] ?? "";
+    final name = rawName.trim().isEmpty ? "Ẩn danh" : rawName;
     final rating = review["rating"] is int ? review["rating"] : 0;
     final feedback = review["feedback"] ?? "";
+    final reviewedAtStr = review["reviewed_at"];
+    DateTime? reviewedAt;
+    if (reviewedAtStr != null) {
+      try {
+        reviewedAt = DateFormat("yyyy-MM-dd HH:mm:ss").parse(reviewedAtStr);
+      } catch (e) {
+        print("Không thể parse thời gian đánh giá: $reviewedAtStr");
+      }
+    }
+
+    print("Review data: $review"); // Debug
+    print("Giá trị reviewed_at: ${review["reviewed_at"]}");
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 6),
@@ -203,9 +228,23 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             ),
             const SizedBox(height: 6),
             Text(feedback),
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerRight,
+              child: reviewedAt != null
+                  ? Text(
+                "Đánh giá ${timeago.format(reviewedAt, locale: 'vi')}",
+                style: const TextStyle(fontSize: 12, color: Colors.grey),
+              )
+                  : const Text(
+                "Không rõ thời gian đánh giá",
+                style: TextStyle(fontSize: 12, color: Colors.red),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
+
 }

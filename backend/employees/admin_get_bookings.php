@@ -10,11 +10,12 @@ error_log("Received search: $search, status: $status");
 
 $sql = "
     SELECT
-        b.id, b.date, b.time, b.status, b.total, b.created_at,
+        b.id, b.date, b.time, b.status, b.total,
         b.customer_name, b.customer_phone, b.note,
         s.name AS service_name,
         u.name AS user_name,
-        e.full_name AS employee_name
+        e.full_name AS employee_name,
+        b.created_at AS created_at
     FROM bookings b
     JOIN users u ON b.user_id = u.id
     JOIN services s ON b.service_id = s.id
@@ -52,6 +53,6 @@ while ($row = $result->fetch_assoc()) {
     $data[] = $row;
 }
 
-error_log("Response data: " . json_encode($data, JSON_UNESCAPED_UNICODE)); // Log dữ liệu trả về
+error_log("Response data: " . json_encode($data, JSON_UNESCAPED_UNICODE));
 echo json_encode(['success' => true, 'data' => $data], JSON_UNESCAPED_UNICODE);
 ?>

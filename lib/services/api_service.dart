@@ -309,22 +309,17 @@ class ApiService {
       if (queryString.isNotEmpty) {
         url += '?$queryString';
       }
-      print('Query string: $queryString');
-      print('Request URL: $url');
       final res = await http.get(Uri.parse(url));
-      print('API response status: ${res.statusCode}, body: ${res.body}');
       if (res.statusCode == 200 && res.body.isNotEmpty) {
         final json = jsonDecode(res.body);
         if (json['success'] == true && json['data'] != null) {
           final bookings = (json['data'] as List).map((e) => Booking.fromJson(e)).toList();
-          print('Parsed bookings: ${bookings.map((b) => b.status).toList()}');
           return bookings;
         }
         throw Exception(json['message'] ?? 'Không tải được danh sách lịch hẹn');
       }
       throw Exception('Lỗi server: ${res.statusCode}');
     } catch (e) {
-      print('Error in getBookings: $e');
       throw Exception('Lỗi kết nối API: $e');
     }
   }

@@ -29,7 +29,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
     WidgetsBinding.instance.addObserver(this);
     _loadBookings();
     _loadNotifications();
-    _pollingTimer = Timer.periodic(const Duration(seconds: 30), (_) => _loadBookings());
+    _startPolling(); // Start automatic refresh
   }
 
   @override
@@ -53,10 +53,17 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
     super.dispose();
   }
 
+  void _startPolling() {
+    _pollingTimer?.cancel(); // Cancel any existing timer
+    _pollingTimer = Timer.periodic(const Duration(seconds: 15), (_) {
+      if (!isLoading) _loadBookings(); // Only load if not already loading
+    });
+  }
+
   Future<void> _loadBookings() async {
     final now = DateTime.now();
-    if (_lastLoadTime != null && now.difference(_lastLoadTime!).inSeconds < 60) {
-      return;
+    if (_lastLoadTime != null && now.difference(_lastLoadTime!).inSeconds < 15) {
+      return; // Prevent too frequent reloads
     }
     _lastLoadTime = now;
 
@@ -307,6 +314,10 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                 ),
             ],
           ),
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: _loadBookings, // Manual reload button
+          ),
         ],
       ),
       body: isLoading
@@ -390,12 +401,12 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Ngày giờ: ${_formatBookingDateTime(booking['date'] ?? 'N/A', booking['time'] ?? 'N/A')}',
+                          'Ngày giờ: \n${_formatBookingDateTime(booking['date'] ?? 'N/A', booking['time'] ?? 'N/A')}',
                           style: const TextStyle(fontSize: 14),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Nhân viên: ${booking['employee'] ?? '---'}',
+                          'Nhân viên: \n${booking['employee'] ?? '---'}',
                           style: const TextStyle(fontSize: 14),
                         ),
                         if (extras.isNotEmpty)

@@ -99,6 +99,18 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
         return;
       }
 
+      // Kiểm tra độ dài mật khẩu mới (ít nhất 6 ký tự)
+      if (_passwordController.text.isNotEmpty && _passwordController.text.length < 6) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Mật khẩu mới phải có ít nhất 6 ký tự"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       try {
         final prefs = await SharedPreferences.getInstance();
         String? base64Avatar;
@@ -138,8 +150,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cập nhật thành công"),
-              backgroundColor: Colors.green),
+          const SnackBar(content: Text("Cập nhật thành công"), backgroundColor: Colors.green),
         );
         Navigator.pop(context, true);
       } catch (e) {
@@ -150,6 +161,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
       }
     }
   }
+
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
@@ -317,6 +329,12 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
         validator: (value) {
           if (validator && value!.isEmpty) return "Không được để trống";
           if (!isPassword && value!.isEmpty) return "Không được để trống";
+          if (isPassword && value!.isNotEmpty && value.length < 6) {
+            return "Mật khẩu phải có ít nhất 6 ký tự";
+          }
+          if (confirm && _passwordController.text.isNotEmpty && value != _passwordController.text) {
+            return "Mật khẩu không khớp";
+          }
           return null;
         },
         style: const TextStyle(color: Colors.white),
@@ -341,7 +359,6 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
       ),
     );
   }
-
   InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,

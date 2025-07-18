@@ -100,6 +100,18 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
         return;
       }
 
+      // Kiểm tra độ dài mật khẩu mới
+      if (_passwordController.text.isNotEmpty && _passwordController.text.length < 6) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Mật khẩu mới phải có ít nhất 6 ký tự"),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
       try {
         final prefs = await SharedPreferences.getInstance();
         String? base64Avatar;
@@ -134,8 +146,7 @@ class _UpdateProfileScreenState extends State<UpdateProfileScreen> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Cập nhật thành công"),
-              backgroundColor: Colors.green),
+          const SnackBar(content: Text("Cập nhật thành công"), backgroundColor: Colors.green),
         );
         Navigator.pop(context, true);
       } catch (e) {

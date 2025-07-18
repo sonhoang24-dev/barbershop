@@ -284,7 +284,10 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
             const Text("Chọn dịch vụ đi kèm", style: TextStyle(fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             ...extraServices.map((item) => CheckboxListTile(
-              title: Text("${item['name']} (+${_formatCurrency(item['price'])}đ)"),
+              title: Text(
+                "${item['name']}\n+${_formatCurrency(item['price'])}đ",
+                style: TextStyle(height: 1.3), // Khoảng cách giữa 2 dòng
+              ),
               value: item['selected'],
               onChanged: (val) {
                 setState(() => item['selected'] = val ?? false);

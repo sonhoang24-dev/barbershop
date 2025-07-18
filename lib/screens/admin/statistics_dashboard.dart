@@ -74,7 +74,26 @@ class _StatisticsDashboardScreenState extends State<StatisticsDashboardScreen> {
       setState(() {
         if (isStart) {
           startDate = picked;
+          // Nếu endDate đã được chọn và nhỏ hơn startDate, điều chỉnh endDate
+          if (endDate != null && endDate!.isBefore(startDate!)) {
+            endDate = startDate; // Hoặc hiển thị thông báo lỗi
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Ngày kết thúc đã được điều chỉnh để lớn hơn hoặc bằng ngày bắt đầu.'),
+              ),
+            );
+          }
         } else {
+          // Kiểm tra nếu endDate nhỏ hơn startDate
+          if (startDate != null && picked.isBefore(startDate!)) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Ngày kết thúc phải lớn hơn hoặc bằng ngày bắt đầu.'),
+                backgroundColor:  Colors.red,
+              ),
+            );
+            return; // Không cập nhật endDate
+          }
           endDate = picked;
         }
       });

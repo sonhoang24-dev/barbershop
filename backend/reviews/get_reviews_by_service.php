@@ -9,12 +9,11 @@ if (!isset($_GET['service_id'])) {
 
 $serviceId = intval($_GET['service_id']);
 
-$sql = "SELECT r.rating, r.feedback, u.name AS name
-        FROM reviews r
-        JOIN bookings b ON r.booking_id = b.id
-        JOIN users u ON r.user_id = u.id
-        WHERE b.service_id = ?";
-
+$sql = "SELECT r.rating, r.feedback, u.name AS name, r.reviewed_at
+               FROM reviews r
+               JOIN bookings b ON r.booking_id = b.id
+               JOIN users u ON r.user_id = u.id
+               WHERE b.service_id = ?";
 $stmt = $conn->prepare($sql);
 
 if (!$stmt) {

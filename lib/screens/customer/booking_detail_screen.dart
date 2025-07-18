@@ -207,7 +207,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
     final safeRating = (_rating ?? 0).clamp(0, 5).toInt();
 
     return Scaffold(
-      appBar: AppBar(title: const Text("Chi tiết lịch đặt"), backgroundColor: Colors.teal),
+      appBar: AppBar(title: const Text("Chi tiết lịch đặt", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),), backgroundColor: Colors.teal ),
       body: Container(
         color: Colors.grey[100],
         child: Padding(
@@ -239,47 +239,57 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [BoxShadow(color: Colors.grey.shade300, blurRadius: 6, offset: const Offset(0, 2))],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildInfoRow("Dịch vụ", booking['service'] ?? 'Dịch vụ'),
-                    _buildInfoRow("Ngày", booking['date'] ?? 'N/A'),
-                    _buildInfoRow("Giờ", booking['time'] ?? 'N/A'),
-                    _buildInfoRow("Nhân viên", booking['employee'] ?? '---'),
-                    if (extras.isNotEmpty) _buildInfoRow("Dịch vụ thêm", extras),
-                    _buildInfoRow("Tổng tiền", "${NumberFormat('#,###', 'vi_VN').format(double.tryParse(booking['total'].toString()) ?? 0)} đ"),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          const Text("Trạng thái:", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.teal)),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              booking['status'] ?? 'Không xác định',
-                              style: TextStyle(color: _getStatusColor(booking['status'] ?? ''), fontWeight: FontWeight.w600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Thông tin đơn hàng",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF004D40),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildInfoRow("Dịch vụ", booking['service'] ?? 'Dịch vụ'),
+                      _buildInfoRow("Ngày", booking['date'] ?? 'N/A'),
+                      _buildInfoRow("Giờ", booking['time'] ?? 'N/A'),
+                      _buildInfoRow("Nhân viên", booking['employee'] ?? '---'),
+                      if (extras.isNotEmpty) _buildInfoRow("Dịch vụ thêm", extras),
+                      _buildInfoRow("Tổng tiền", "${NumberFormat('#,###', 'vi_VN').format(double.tryParse(booking['total'].toString()) ?? 0)} đ"),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            const Text("Trạng thái:", style: TextStyle(fontWeight: FontWeight.w600, color: Colors.teal)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                booking['status'] ?? 'Không xác định',
+                                style: TextStyle(color: _getStatusColor(booking['status'] ?? ''), fontWeight: FontWeight.w600),
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    if (booking['rating'] != null)
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildInfoRow("Đánh giá", "${booking['rating']} / 5 sao"),
-                          if (booking['feedback'] != null && booking['feedback'].isNotEmpty)
-                            _buildInfoRow("Phản hồi", booking['feedback']),
-                        ],
-                      ),
-                    const Divider(height: 24),
-                    const Text("Thông tin khách hàng", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.teal)),
-                    const SizedBox(height: 8),
-                    _buildInfoRow("Họ tên", booking['customer_name'] ?? ""),
-                    _buildInfoRow("SĐT", booking['customer_phone'] ?? ""),
-                  ],
-                ),
+                      if (booking['rating'] != null)
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildInfoRow("Đánh giá", "${booking['rating']} / 5 sao"),
+                            if (booking['feedback'] != null && booking['feedback'].isNotEmpty)
+                              _buildInfoRow("Phản hồi", booking['feedback']),
+                          ],
+                        ),
+                      const Divider(height: 24),
+                      const Text("Thông tin khách hàng", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Color(0xFF004D40))),
+                      const SizedBox(height: 8),
+                      _buildInfoRow("Họ tên", booking['customer_name'] ?? ""),
+                      _buildInfoRow("SĐT", booking['customer_phone'] ?? ""),
+                    ],
+                  ),
               ),
+
               const SizedBox(height: 24),
               if (canEdit)
                 Center(
