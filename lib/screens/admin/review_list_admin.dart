@@ -122,10 +122,13 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
           DropdownButtonFormField<int>(
             decoration: _inputDecoration("Số sao"),
             value: selectedRating,
-            items: List.generate(5, (i) => i + 1).map((s) {
+            hint: const Text('Tất cả', style: TextStyle(fontSize: 11),),
+            items: [null, ...List.generate(5, (i) => i + 1)].map((s) {
               return DropdownMenuItem(
                 value: s,
-                child: Row(
+                child: s == null
+                    ? const Text('Tất cả',style: TextStyle(fontSize: 15))
+                    : Row(
                   children: [
                     ...List.generate(s, (_) => const Icon(Icons.star, color: Colors.amber, size: 18)),
                     const SizedBox(width: 8),
@@ -143,10 +146,13 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
           DropdownButtonFormField<int>(
             decoration: _inputDecoration("Dịch vụ"),
             value: selectedServiceId,
-            items: services.map<DropdownMenuItem<int>>((s) {
+            hint: const Text('Tất cả'), // Hiển thị "Tất cả" khi không chọn
+            items: [null, ...services].map<DropdownMenuItem<int>>((s) {
               return DropdownMenuItem(
-                value: int.tryParse(s['id'].toString()) ?? 0,
-                child: Text(s['name']?.toString() ?? 'Không xác định', style: const TextStyle(fontSize: 14)),
+                value: s == null ? null : int.tryParse(s['id'].toString()) ?? 0,
+                child: s == null
+                    ? const Text('Tất cả', style: TextStyle(fontSize: 14))
+                    : Text(s['name']?.toString() ?? 'Không xác định', style: const TextStyle(fontSize: 14)),
               );
             }).toList(),
             onChanged: (value) {
@@ -233,7 +239,7 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Danh sách đánh giá', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Danh sách đánh giá', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.teal,
         elevation: 0,
         centerTitle: true,

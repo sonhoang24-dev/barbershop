@@ -14,6 +14,9 @@ class ManageServicesScreen extends StatefulWidget {
 
 class _ManageServicesScreenState extends State<ManageServicesScreen> {
   Future<List<Service>>? _futureServices;
+  String _searchQuery = '';
+  String _selectedStatus = 'Tất cả';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -21,12 +24,28 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
     _loadServices();
   }
 
-  void _loadServices() {
-    _futureServices = ApiService.fetchAllServicesForAdmin();
+  void _loadServices({String search = '', String status = ''}) {
+    setState(() {
+      _futureServices = ApiService.fetchAllServicesForAdmin(search: search, status: status);
+    });
   }
 
   Future<void> _refresh() async {
-    setState(() => _loadServices());
+    _loadServices(search: _searchQuery, status: _selectedStatus == 'Tất cả' ? '' : _selectedStatus);
+  }
+
+  void _onSearchChanged(String query) {
+    setState(() {
+      _searchQuery = query;
+      _loadServices(search: _searchQuery, status: _selectedStatus == 'Tất cả' ? '' : _selectedStatus);
+    });
+  }
+
+  void _onStatusChanged(String? newStatus) {
+    setState(() {
+      _selectedStatus = newStatus ?? 'Tất cả';
+      _loadServices(search: _searchQuery, status: _selectedStatus == 'Tất cả' ? '' : _selectedStatus);
+    });
   }
 
   Widget _buildServiceCard(Service service, ThemeData theme) {
@@ -239,6 +258,51 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(80.0),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                TextField(
+                  controller: _searchController,
+                  onChanged: _onSearchChanged,
+                  decoration: InputDecoration(
+                    hintText: 'Tìm kiếm theo tên dịch vụ...',
+                    prefixIcon: const Icon(Icons.search),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[200],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text('Lọc theo trạng thái: '),
+                    DropdownButton<String>(
+                      value: _selectedStatus,
+                      items: <String>['Tất cả', 'Đang hoạt động', 'Ngừng hoạt động']
+                          .map<DropdownMenuItem<String>>((String value) {
+                        return DropdownMenuItem<String>(
+                          value: value,
+                          child: Text(value),
+                        );
+                      }).toList(),
+                      onChanged: _onStatusChanged,
+                      underline: Container(),
+                      icon: const Icon(Icons.arrow_drop_down),
+                      style: TextStyle(color: theme.primaryColor),
+                      dropdownColor: Colors.white,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       body: FutureBuilder<List<Service>>(

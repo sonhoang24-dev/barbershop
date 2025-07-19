@@ -171,7 +171,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text("Điều khoản & Điều kiện",
-            style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 20)),
+            style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold, fontSize: 18)),
         content: SingleChildScrollView(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,7 +294,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         children: [
                           const TextSpan(text: "Tôi đồng ý với "),
                           TextSpan(
-                            text: "Điều khoản và điều kiện",
+                            text: "Điều khoản & điều kiện",
                             style: const TextStyle(
                               color: Colors.teal,
                               decoration: TextDecoration.underline,

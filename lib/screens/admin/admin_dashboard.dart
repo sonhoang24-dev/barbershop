@@ -23,12 +23,12 @@ class AdminDashboard extends StatelessWidget {
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       appBar: AppBar(
-        title: const Text('Trang Quản Trị', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Trang Quản Trị', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         centerTitle: true,
         backgroundColor: Colors.teal.shade700,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout),
+            icon: const Icon(Icons.logout, color: Colors.white ),
             tooltip: 'Đăng xuất',
             onPressed: () => _logout(context),
           ),

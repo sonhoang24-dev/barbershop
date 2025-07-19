@@ -39,7 +39,10 @@ dependencies:
   badges: ^3.0.0
   device_info_plus: ^10.1.0
   timeago: ^3.7.1
-  connectivity_plus: ^5.0.2
+  connectivity_plus: ^5.0.1
+  android_intent_plus: ^3.0.2
+  internet_connection_checker: ^1.0.0+1
+  flutter_local_notifications: ^19.3.1
 
 
 flutter_icons:

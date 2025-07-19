@@ -775,7 +775,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
         title: TextField(
           controller: _searchController,
           decoration: InputDecoration(
-            hintText: 'Tìm tên hoặc tiền tố số điện thoại (VD: 03, 033)',
+            hintText: 'Tìm tên hoặc Số điện thoại',
             hintStyle: const TextStyle(color: Colors.white70, fontSize: 16),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),

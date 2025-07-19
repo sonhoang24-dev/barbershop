@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:Barbershopdht/widgets/connectivity_wrapper.dart';
 import 'home_screen.dart';
 import 'booking_list_screen.dart';
 import 'shop_info_screen.dart';
@@ -60,7 +61,7 @@ class _CustomerHomeState extends State<CustomerHome> {
         return const HomeScreen();
       case 1:
         return BookingListScreen(
-          onNotificationChanged: _loadNotificationStatus, // Sử dụng đúng tên tham số
+          onNotificationChanged: _loadNotificationStatus,
         );
       case 2:
         return const ShopInfoScreen();
@@ -73,51 +74,53 @@ class _CustomerHomeState extends State<CustomerHome> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: _buildScreen(_currentIndex),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        selectedItemColor: Colors.teal,
-        unselectedItemColor: Colors.grey,
-        onTap: _onTabSelected,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: "Trang chủ",
-          ),
-          BottomNavigationBarItem(
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.history),
-                if (_hasNewNotifications)
-                  Positioned(
-                    right: -1,
-                    top: -1,
-                    child: Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: Colors.white, width: 1.5),
+    return ConnectivityWrapper(
+      child: Scaffold(
+        body: _buildScreen(_currentIndex),
+        bottomNavigationBar: BottomNavigationBar(
+          currentIndex: _currentIndex,
+          selectedItemColor: Colors.teal,
+          unselectedItemColor: Colors.grey,
+          onTap: _onTabSelected,
+          items: [
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: "Trang chủ",
+            ),
+            BottomNavigationBarItem(
+              icon: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  const Icon(Icons.history),
+                  if (_hasNewNotifications)
+                    Positioned(
+                      right: -1,
+                      top: -1,
+                      child: Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 1.5),
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
+              label: "Lịch sử",
             ),
-            label: "Lịch sử",
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.store),
-            label: "Cửa hàng",
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: "Tài khoản",
-          ),
-        ],
-        type: BottomNavigationBarType.fixed,
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.store),
+              label: "Cửa hàng",
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.person),
+              label: "Tài khoản",
+            ),
+          ],
+          type: BottomNavigationBarType.fixed,
+        ),
       ),
     );
   }

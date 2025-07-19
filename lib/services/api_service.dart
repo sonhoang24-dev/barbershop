@@ -121,8 +121,13 @@ class ApiService {
     throw Exception('Lỗi tải danh sách dịch vụ');
   }
 
-  static Future<List<Service>> fetchAllServicesForAdmin() async {
-    final response = await http.get(Uri.parse('$baseUrl/services/list_for_admin.php'));
+  static Future<List<Service>> fetchAllServicesForAdmin({String search = '', String status = ''}) async {
+    final queryParams = {
+      if (search.isNotEmpty) 'search': search,
+      if (status.isNotEmpty) 'status': status,
+    };
+    final uri = Uri.parse('$baseUrl/services/list_for_admin.php').replace(queryParameters: queryParams);
+    final response = await http.get(uri);
     if (response.statusCode == 200 && response.body.isNotEmpty) {
       final body = jsonDecode(response.body);
       if (body['success'] == true && body['data'] is List) {

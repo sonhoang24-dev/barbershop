@@ -41,9 +41,6 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
       });
     } catch (e) {
       setState(() => loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Lỗi tải đánh giá: $e")),
-      );
     }
   }
 
@@ -60,7 +57,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(service['title']),
+        title: Text("Chi tiết dịch vụ", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20),),
         backgroundColor: Colors.teal,
       ),
       body: loading
@@ -106,8 +103,8 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                icon: const Icon(Icons.calendar_today),
-                label: const Text("Đặt lịch ngay"),
+                icon: const Icon(Icons.calendar_today, color: Colors.white),
+                label: const Text("Đặt lịch ngay", style: TextStyle(color: Colors.white),),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.teal,
                   padding: const EdgeInsets.symmetric(vertical: 14),

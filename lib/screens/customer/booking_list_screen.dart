@@ -5,6 +5,16 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'booking_detail_screen.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+
+final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+Future<void> _initializeLocalNotifications() async {
+  const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings settings = InitializationSettings(android: androidSettings);
+  await _flutterLocalNotificationsPlugin.initialize(settings);
+} //khởi tạo thông báo ở bên ngoài app------------------
+
 
 class BookingListScreen extends StatefulWidget {
   final VoidCallback? onNotificationChanged;
@@ -23,6 +33,8 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   Timer? _pollingTimer;
   DateTime? _lastLoadTime;
 
+
+
   @override
   void initState() {
     super.initState();
@@ -30,6 +42,8 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
     _loadBookings();
     _loadNotifications();
     _startPolling(); // Start automatic refresh
+    _initializeLocalNotifications(); // gọi thư viện thông báo ra bên ngoài
+
   }
 
   @override
@@ -105,6 +119,11 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                 'message': 'Lịch hẹn $serviceName vào $formattedDateTime đã được cập nhật thành: $newBookingStatus',
                 'timestamp': DateTime.now().toIso8601String(),
               });
+              await _showSystemNotification(
+                'Cập nhật lịch hẹn',
+                'Lịch hẹn $serviceName vào $formattedDateTime : $newBookingStatus',
+              );
+
             }
           }
 
@@ -275,6 +294,26 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
     );
   }
 
+  Future<void> _showSystemNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'booking_channel_id',
+      'Booking Notifications',
+      channelDescription: 'Thông báo lịch hẹn',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+
+    await _flutterLocalNotificationsPlugin.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000, // ID duy nhất
+      title,
+      body,
+      platformDetails,
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -373,6 +412,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                     'message': message,
                     'timestamp': DateTime.now().toIso8601String(),
                   });
+                  await _showSystemNotification('Cập nhật lịch hẹn', message);
                   await prefs.setStringList(
                     'notifications',
                     tempNotifications.map((n) => jsonEncode(n)).toList(),

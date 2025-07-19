@@ -26,15 +26,14 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _fetchServices() async {
     try {
       final data = await ApiService.fetchServices();
+      if (!mounted) return;
       setState(() {
         _services = data;
         _loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Lỗi tải dịch vụ: $e")),
-      );
     }
   }
 
@@ -42,7 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Dịch vụ đặt lịch cắt tóc", style: TextStyle(color: Colors.white)),
+        title: const Text("Dịch vụ đặt lịch cắt tóc", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.teal[700],
         centerTitle: true,
       ),
@@ -102,9 +101,7 @@ class _HomeScreenState extends State<HomeScreen> {
               )
             else
               const Icon(Icons.cut, size: 100, color: Colors.teal),
-
             const SizedBox(height: 4),
-
             Text(
               service.title,
               maxLines: 2,
@@ -116,13 +113,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Colors.teal[900],
               ),
             ),
-
             const SizedBox(height: 4),
-
             _buildRatingStars(service.rating),
-
             const SizedBox(height: 4),
-
             Text(
               "${formatCurrency.format(service.price)} đ",
               textAlign: TextAlign.center,
@@ -132,9 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 color: Colors.teal[700],
               ),
             ),
-
             const SizedBox(height: 8),
-
             SizedBox(
               height: 36,
               width: double.infinity,
@@ -197,18 +188,15 @@ class _HomeScreenState extends State<HomeScreen> {
         style: TextStyle(fontSize: 13, color: Colors.grey),
       );
     }
-
     int fullStars = rating.floor();
     bool halfStar = (rating - fullStars) >= 0.5;
-
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         ...List.generate(fullStars, (_) => const Icon(Icons.star, color: Colors.amber, size: 18)),
         if (halfStar) const Icon(Icons.star_half, color: Colors.amber, size: 18),
-        ...List.generate(5 - fullStars - (halfStar ? 1 : 0),
-                (_) => const Icon(Icons.star_border, color: Colors.grey, size: 18)),
+        ...List.generate(5 - fullStars - (halfStar ? 1 : 0), (_) => const Icon(Icons.star_border, color: Colors.grey, size: 18)),
         const SizedBox(width: 4),
         Text("${rating.toStringAsFixed(1)}", style: const TextStyle(fontSize: 13)),
       ],

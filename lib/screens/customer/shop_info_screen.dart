@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
+import 'package:android_intent_plus/android_intent.dart';
+import 'package:android_intent_plus/flag.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ShopInfoScreen extends StatefulWidget {
   const ShopInfoScreen({super.key});
@@ -15,7 +17,7 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
   GoogleMapController? _mapController;
   final LatLng shopLocation = const LatLng(10.0467807, 105.7680453);
   final String shopAddress = '256 Đ. Nguyễn Văn Cừ, An Hoà, Ninh Kiều, Cần Thơ';
-  final String phoneNumber = '02923898167';
+  final String phoneNumber = '0333440700';
   bool _isMapLoading = true;
 
   @override
@@ -51,30 +53,40 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
   }
 
   Future<void> _openMap() async {
-    final url = Uri.parse(
-        'https://www.google.com/maps/dir/?api=1&destination=${shopLocation.latitude},${shopLocation.longitude}');
+    final intent = AndroidIntent(
+      action: 'android.intent.action.VIEW',
+      data: Uri.encodeFull('google.navigation:q=${shopLocation.latitude},${shopLocation.longitude}'),
+      package: 'com.google.android.apps.maps',
+      flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+    );
+
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        _showError('Không thể mở Google Maps');
-      }
+      await intent.launch();
     } catch (e) {
-      _showError('Đã xảy ra lỗi khi mở Google Maps');
+      _showError('Không thể mở Google Maps: $e');
     }
   }
 
   Future<void> _dialPhone() async {
-    final Uri url = Uri(scheme: 'tel', path: phoneNumber);
+    final intent = AndroidIntent(
+      action: 'android.intent.action.DIAL',
+      data: Uri.encodeFull('tel:$phoneNumber'),
+      flags: <int>[Flag.FLAG_ACTIVITY_NEW_TASK],
+    );
 
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
-      } else {
-        _showError('Không thể mở ứng dụng điện thoại. Vui lòng kiểm tra cài đặt hoặc chạy trên thiết bị thật.');
-      }
+      await intent.launch();
     } catch (e) {
-      _showError('Đã xảy ra lỗi khi mở ứng dụng điện thoại: $e');
+      _showError('Không thể mở ứng dụng gọi điện: $e');
+    }
+  }
+
+  Future<void> _openZalo() async {
+    final url = Uri.parse('https://zalo.me/$phoneNumber');
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      _showError('Không thể mở Zalo.');
     }
   }
 
@@ -193,7 +205,11 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
                         status,
                         style: TextStyle(
                           fontWeight: FontWeight.w600,
-                          color: status.contains("Đang") ? Colors.green : status.contains("Sắp") ? Colors.orange : Colors.red,
+                          color: status.contains("Đang")
+                              ? Colors.green
+                              : status.contains("Sắp")
+                              ? Colors.orange
+                              : Colors.red,
                         ),
                       ),
                     ],
@@ -216,16 +232,42 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
                 const SizedBox(height: 20),
                 _infoRow(
                   icon: Icons.phone_outlined,
-                  child: GestureDetector(
-                    onTap: _dialPhone,
-                    child: Text(
-                      '$phoneNumber',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        color: Colors.blue,
-                        decoration: TextDecoration.underline,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      GestureDetector(
+                        onTap: _dialPhone,
+                        child: Row(
+                          children: const [
+                            Text(
+                              'Gọi Ngay',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
+                      GestureDetector(
+                        onTap: _openZalo,
+                        child: Row(
+                          children: [
+                            Image.network(
+                              'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Icon_of_Zalo.svg/1024px-Icon_of_Zalo.svg.png',
+                              width: 20,
+                              height: 20,
+                            ),
+                            const SizedBox(width: 5),
+                            const Text(
+                              'Chat Zalo',
+                              style: TextStyle(fontSize: 16, color: Colors.blue),
+                            ),
+                          ],
+
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: 30),
