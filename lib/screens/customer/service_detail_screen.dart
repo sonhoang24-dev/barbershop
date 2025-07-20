@@ -98,7 +98,21 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
             if (reviews.isEmpty)
               const Text("Chưa có đánh giá nào", style: TextStyle(color: Colors.grey))
             else
-              ...reviews.map(_buildReviewCard).toList(),
+              Container(
+                height: 250,
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Scrollbar(
+                  child: ListView.builder(
+                    itemCount: reviews.length,
+                    itemBuilder: (context, index) {
+                      return _buildReviewCard(reviews[index]);
+                    },
+                  ),
+                ),
+              ),
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,

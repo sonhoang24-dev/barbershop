@@ -36,7 +36,7 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
 
   void _onSearchChanged(String query) {
     setState(() {
-      _searchQuery = query;
+      _searchQuery = query.trim(); // Trim whitespace
       _loadServices(search: _searchQuery, status: _selectedStatus == 'Tất cả' ? '' : _selectedStatus);
     });
   }
@@ -244,7 +244,6 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final numberFormat = NumberFormat.decimalPattern('vi_VN');
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -260,47 +259,107 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80.0),
-          child: Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Column(
-              children: [
-                TextField(
-                  controller: _searchController,
-                  onChanged: _onSearchChanged,
-                  decoration: InputDecoration(
-                    hintText: 'Tìm kiếm theo tên dịch vụ...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
+          preferredSize: const Size.fromHeight(140), // Tăng nếu cần
+          child: SingleChildScrollView( // Thêm scroll nếu nội dung có thể dài
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                    filled: true,
-                    fillColor: Colors.grey[200],
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: _onSearchChanged,
+                      style: const TextStyle(fontSize: 16, color: Colors.black87),
+                      decoration: InputDecoration(
+                        hintText: 'Tìm kiếm theo tên dịch vụ...',
+                        hintStyle: TextStyle(color: Colors.grey[500]),
+                        prefixIcon: Icon(Icons.search, color: theme.primaryColor),
+                        suffixIcon: _searchController.text.isNotEmpty
+                            ? IconButton(
+                          icon: Icon(Icons.clear, color: theme.primaryColor),
+                          onPressed: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                          },
+                        )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                      ),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Text('Lọc theo trạng thái: '),
-                    DropdownButton<String>(
-                      value: _selectedStatus,
-                      items: <String>['Tất cả', 'Đang hoạt động', 'Ngừng hoạt động']
-                          .map<DropdownMenuItem<String>>((String value) {
-                        return DropdownMenuItem<String>(
-                          value: value,
-                          child: Text(value),
-                        );
-                      }).toList(),
-                      onChanged: _onStatusChanged,
-                      underline: Container(),
-                      icon: const Icon(Icons.arrow_drop_down),
-                      style: TextStyle(color: theme.primaryColor),
-                      dropdownColor: Colors.white,
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          spreadRadius: 2,
+                          blurRadius: 5,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ],
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'Trạng thái: ',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black87),
+                        ),
+                        const SizedBox(width: 8),
+                        DropdownButton<String>(
+                          value: _selectedStatus,
+                          items: ['Tất cả', 'Đang hoạt động', 'Ngừng hoạt động']
+                              .map((value) {
+                            Color statusColor;
+                            switch (value) {
+                              case 'Đang hoạt động':
+                                statusColor = Colors.green[700]!;
+                                break;
+                              case 'Ngừng hoạt động':
+                                statusColor = Colors.red[700]!;
+                                break;
+                              default:
+                                statusColor = Colors.grey[600]!;
+                            }
+                            return DropdownMenuItem(
+                              value: value,
+                              child: Row(
+                                children: [
+                                  Icon(Icons.circle, size: 12, color: statusColor),
+                                  const SizedBox(width: 8),
+                                  Text(value, style: TextStyle(color: statusColor)),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: _onStatusChanged,
+                          underline: Container(),
+                          icon: Icon(Icons.arrow_drop_down, color: theme.primaryColor),
+                          style: const TextStyle(fontSize: 16, color: Colors.black87),
+                          dropdownColor: Colors.white,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -354,7 +413,9 @@ class _ManageServicesScreenState extends State<ManageServicesScreen> {
                   Icon(Icons.list_alt, color: Colors.grey[500], size: 48),
                   const SizedBox(height: 12),
                   Text(
-                    'Chưa có dịch vụ nào.',
+                    _searchQuery.isNotEmpty || _selectedStatus != 'Tất cả'
+                        ? 'Không tìm thấy dịch vụ phù hợp.'
+                        : 'Chưa có dịch vụ nào.',
                     style: TextStyle(
                       fontSize: 18,
                       color: Colors.grey[600],

@@ -25,6 +25,7 @@ class Service {
   final double rating;
   final String status;
   final List<ExtraService> extras;
+  final String? createdAt; // Thêm trường createdAt
 
   Service({
     required this.id,
@@ -35,6 +36,7 @@ class Service {
     required this.rating,
     required this.status,
     this.extras = const [],
+    this.createdAt, // Thêm vào constructor
   });
 
   factory Service.fromJson(Map<String, dynamic> json) {
@@ -45,11 +47,12 @@ class Service {
       price: parseDouble(json['price']) ?? 0.0,
       images: (json['images'] as List?)?.map((e) => e.toString()).toList() ?? [],
       rating: parseDouble(json['rating']) ?? 0.0,
-      status: json['status']?.toString() ?? '', // map status từ json
+      status: json['status']?.toString() ?? '',
       extras: (json['extras'] as List?)
           ?.map((e) => ExtraService.fromJson(e as Map<String, dynamic>))
           .toList() ??
           [],
+      createdAt: json['created_at']?.toString(), // Sửa từ 'createdAt' thành 'created_at'
     );
   }
 
@@ -63,6 +66,7 @@ class Service {
       'rating': rating,
       'status': status,
       'extras': extras.map((e) => e.toMap()).toList(),
+      'createdAt': createdAt,
     };
   }
 }

@@ -22,6 +22,7 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
   bool isLoading = true;
   int _newBookingCount = 0;
   List<Booking> _newBookings = [];
+  Set<int> _handledBookingIds = {};
 
   @override
   void initState() {
@@ -44,9 +45,10 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
       try {
         final bookings = await ApiService.getBookings(status: 'Chờ xác nhận');
         if (mounted) {
+          final newOnes = bookings?.where((b) => !_handledBookingIds.contains(b.id)).toList() ?? [];
           setState(() {
-            _newBookings = bookings ?? [];
-            _newBookingCount = _newBookings.length;
+            _newBookings = newOnes;
+            _newBookingCount = newOnes.length;
           });
         }
       } catch (e) {
@@ -65,17 +67,11 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
     });
     try {
       final bookings = await _futureBookings;
-      if (bookings != null) {
-        for (var booking in bookings) {
-          print('Booking ID: ${booking.id}, createdAt: ${booking.createdAt}, customerName: ${booking.customerName}, serviceName: ${booking.serviceName}, status: ${booking.status}');
-        }
-        // Sắp xếp theo createdAt giảm dần (mới nhất lên đầu)
-        bookings.sort((a, b) {
-          final dateTimeA = a.createdAt != null ? DateTime.tryParse(a.createdAt!) ?? DateTime(1970) : DateTime(1970);
-          final dateTimeB = b.createdAt != null ? DateTime.tryParse(b.createdAt!) ?? DateTime(1970) : DateTime(1970);
-          return dateTimeB.compareTo(dateTimeA); // Newest first
-        });
-      }
+      bookings?.sort((a, b) {
+        final dateTimeA = a.createdAt != null ? DateTime.tryParse(a.createdAt!) ?? DateTime(1970) : DateTime(1970);
+        final dateTimeB = b.createdAt != null ? DateTime.tryParse(b.createdAt!) ?? DateTime(1970) : DateTime(1970);
+        return dateTimeB.compareTo(dateTimeA);
+      });
       if (mounted && bookings != null) {
         setState(() {
           isLoading = false;
@@ -84,9 +80,7 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
     } catch (e) {
       print('Error fetching bookings: $e');
       if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
+        setState(() => isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Lỗi tải danh sách đặt lịch: $e")),
         );
@@ -121,63 +115,82 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
   void _showNotificationDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Đơn hàng mới'),
-        content: _newBookings.isEmpty
-            ? const Text('Không có đơn hàng mới.')
-            : SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: _newBookings.length,
-            itemBuilder: (context, index) {
-              final booking = _newBookings[index];
-              return ListTile(
-                title: Text(booking.serviceName ?? ''),
-                subtitle: Text('Khách: ${booking.customerName ?? ''} - ${booking.time ?? ''}'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.red),
-                  onPressed: () {
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Đơn hàng mới'),
+          content: _newBookings.isEmpty
+              ? const Text('Không có đơn hàng mới.')
+              : SizedBox(
+            width: double.maxFinite,
+            child: ListView.builder(
+              shrinkWrap: true,
+              itemCount: _newBookings.length,
+              itemBuilder: (context, index) {
+                final booking = _newBookings[index];
+                return ListTile(
+                  title: Text(booking.serviceName ?? ''),
+                  subtitle: Text('Khách: ${booking.customerName ?? ''} - ${booking.time ?? ''}'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close, color: Colors.red),
+                    onPressed: () {
+                      setState(() {
+                        _handledBookingIds.add(booking.id);
+                        _newBookings.removeAt(index);
+                        _newBookingCount = _newBookings.length;
+                      });
+                      setDialogState(() {}); // Cập nhật giao diện dialog
+                    },
+                  ),
+                  onTap: () async {
                     setState(() {
-                      _newBookings.removeAt(index);
-                      _newBookingCount = _newBookings.length;
+                      // Đánh dấu tất cả là đã xem
+                      for (var booking in _newBookings) {
+                        _handledBookingIds.add(booking.id);
+                      }
+                      _newBookings.clear();
+                      _newBookingCount = 0;
                     });
-                  },
-                ),
-                onTap: () async {
-                  final updated = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AppointmentDetailAdminScreen(bookingId: booking.id),
-                    ),
-                  );
-                  if (updated == true) {
-                    setState(() {
-                      _newBookings.removeAt(index);
-                      _newBookingCount = _newBookings.length;
-                    });
-                    _fetchBookings();
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Cập nhật đơn hàng thành công'),
-                          backgroundColor: Colors.green,
-                          duration: Duration(seconds: 2),
-                        ),
-                      );
+                    Navigator.pop(context); // Đóng dialog
+                    final updated = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => AppointmentDetailAdminScreen(bookingId: booking.id),
+                      ),
+                    );
+                    if (updated == true) {
+                      _fetchBookings();
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Cập nhật đơn hàng thành công'),
+                            backgroundColor: Colors.green,
+                            duration: Duration(seconds: 2),
+                          ),
+                        );
+                      }
                     }
+                  },
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  // Đánh dấu tất cả là đã xem
+                  for (var booking in _newBookings) {
+                    _handledBookingIds.add(booking.id);
                   }
-                },
-              );
-            },
-          ),
+                  _newBookings.clear();
+                  _newBookingCount = 0;
+                });
+                Navigator.pop(context);
+              },
+              child: const Text('Đóng'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Đóng'),
-          ),
-        ],
       ),
     );
   }
@@ -197,15 +210,16 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
+          setState(() {
+            _handledBookingIds.add(booking.id);
+            _newBookings.removeWhere((b) => b.id == booking.id);
+            _newBookingCount = _newBookings.length;
+          });
           final updated = await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => AppointmentDetailAdminScreen(bookingId: booking.id)),
           );
           if (updated == true) {
-            setState(() {
-              _newBookings.removeWhere((b) => b.id == booking.id);
-              _newBookingCount = _newBookings.length;
-            });
             _fetchBookings();
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -224,7 +238,6 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              /// khách hàng
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -252,8 +265,6 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                 ],
               ),
               const SizedBox(height: 12),
-
-              /// dịch vụ
               Row(
                 children: [
                   Icon(Icons.cut, color: Colors.grey[600], size: 20),
@@ -272,8 +283,6 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                 ],
               ),
               const SizedBox(height: 12),
-
-              /// ngày và giờ
               Row(
                 children: [
                   Icon(Icons.calendar_today, color: Colors.grey[600], size: 20),
@@ -298,8 +307,6 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                 ],
               ),
               const SizedBox(height: 12),
-
-              /// trạng thái
               Row(
                 children: [
                   Icon(Icons.fiber_manual_record, color: statusColor, size: 20),
@@ -314,8 +321,6 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                   ),
                 ],
               ),
-
-              /// tổng tiền
               if (booking.total != null && booking.total! > 0) ...[
                 const SizedBox(height: 12),
                 Row(
@@ -327,14 +332,12 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: theme.primaryColor,
+                        color: Colors.red,
                       ),
                     ),
                   ],
                 ),
               ],
-
-              /// Tạo lúc
               if (booking.createdAt != null && booking.createdAt!.isNotEmpty) ...[
                 const SizedBox(height: 12),
                 Row(

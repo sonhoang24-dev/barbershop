@@ -24,7 +24,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
   String _selectedStatus = 'Đang hoạt động';
   List<XFile> _selectedImages = [];
   List<String> _existingImages = [];
-  List<String> _deletedImages = []; // Track deleted images
+  List<String> _deletedImages = [];
   List<Map<String, dynamic>> _extras = [];
 
   @override
@@ -44,30 +44,21 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
   }
 
   void _initializeExtras() {
-    if (widget.service != null) {
-      if (widget.service!.extras != null && widget.service!.extras.isNotEmpty) {
-        _extras = widget.service!.extras.map((e) {
-          return {
-            'id': e.id,
-            'name': e.name ?? '',
-            'price': e.price != null ? NumberFormat.decimalPattern('vi_VN').format(e.price) : NumberFormat.decimalPattern('vi_VN').format(0.0),
-            'priceController': TextEditingController(
-              text: e.price != null ? NumberFormat.decimalPattern('vi_VN').format(e.price) : NumberFormat.decimalPattern('vi_VN').format(0.0),
-            ),
-          };
-        }).toList();
-        print('Loaded extras from service: $_extras');
-      } else {
-        print('No extras found in service, initializing default');
-      }
-    }
-    if (_extras.isEmpty) {
-      _extras.add({
-        'name': '',
-        'price': NumberFormat.decimalPattern('vi_VN').format(0.0),
-        'priceController': TextEditingController(text: NumberFormat.decimalPattern('vi_VN').format(0.0)),
-      });
-      print('Initialized default extras: $_extras');
+    if (widget.service != null && widget.service!.extras != null && widget.service!.extras.isNotEmpty) {
+      _extras = widget.service!.extras.map((e) {
+        return {
+          'id': e.id,
+          'name': e.name ?? '',
+          'price': e.price != null ? NumberFormat.decimalPattern('vi_VN').format(e.price) : NumberFormat.decimalPattern('vi_VN').format(0.0),
+          'priceController': TextEditingController(
+            text: e.price != null ? NumberFormat.decimalPattern('vi_VN').format(e.price) : NumberFormat.decimalPattern('vi_VN').format(0.0),
+          ),
+        };
+      }).toList();
+      print('Loaded extras from service: $_extras');
+    } else {
+      print('No extras found in service, initializing empty');
+      _extras = [];
     }
   }
 
@@ -113,13 +104,6 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
       );
     }).toList();
 
-    if (extrasList.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ít nhất phải có 1 dịch vụ đi kèm hợp lệ')),
-      );
-      return;
-    }
-
     // Chuẩn hóa _deletedImages để chỉ chứa phần base64
     final cleanedDeletedImages = _deletedImages.map((img) {
       return img.startsWith('data:image/jpeg;base64,')
@@ -145,7 +129,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
       extras: extrasList,
       status: _selectedStatus,
       deletedImages: cleanedDeletedImages,
-      remainingImages: remainingImages, // Thêm danh sách ảnh còn lại
+      remainingImages: remainingImages,
     );
 
     if (context.mounted) {
@@ -160,7 +144,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(isUpdate ? 'Cập nhật thành công!' : 'Thêm thành công!'),
-            backgroundColor: Theme.of(context).primaryColor,
+            backgroundColor: Colors.green[700],
           ),
         );
         Navigator.pop(context, true);
@@ -335,7 +319,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Dịch vụ đi kèm',
+                        'Dịch vụ đi kèm (Tùy chọn)',
                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 16),
@@ -354,16 +338,14 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                                     child: TextFormField(
                                       initialValue: extra['name'],
                                       decoration: InputDecoration(
-                                        labelText: 'Tên dịch vụ đi kèm *',
+                                        labelText: 'Tên dịch vụ đi kèm',
                                         hintText: 'Nhập tên (tối đa 100 ký tự)',
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                         filled: true,
                                         fillColor: Colors.grey[100],
                                       ),
                                       validator: (value) {
-                                        if (value == null || value.trim().isEmpty)
-                                          return 'Tên không được để trống';
-                                        if (value.trim().length > 100)
+                                        if (value != null && value.trim().isNotEmpty && value.trim().length > 100)
                                           return 'Tên quá dài (tối đa 100 ký tự)';
                                         return null;
                                       },
@@ -377,7 +359,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                                       controller: priceController,
                                       keyboardType: TextInputType.number,
                                       decoration: InputDecoration(
-                                        labelText: 'Giá (VNĐ) *',
+                                        labelText: 'Giá (VNĐ)',
                                         hintText: 'Nhập giá (số dương, ví dụ: 10.000)',
                                         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                                         filled: true,
@@ -396,8 +378,7 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                                         }
                                       },
                                       validator: (value) {
-                                        if (value == null || value.trim().isEmpty)
-                                          return 'Giá không được để trống';
+                                        if (value == null || value.trim().isEmpty) return null;
                                         final clean = value.replaceAll('.', '');
                                         final parsed = double.tryParse(clean);
                                         if (parsed == null || parsed <= 0)
@@ -408,13 +389,11 @@ class _AddOrEditServiceScreenState extends State<AddOrEditServiceScreen> {
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.remove_circle, color: Colors.red),
-                                    onPressed: _extras.length > 1
-                                        ? () => setState(() {
+                                    onPressed: () => setState(() {
                                       _extras.removeAt(index);
                                       priceController.dispose();
-                                    })
-                                        : null,
-                                    tooltip: _extras.length > 1 ? 'Xóa dịch vụ' : 'Ít nhất 1 dịch vụ đi kèm',
+                                    }),
+                                    tooltip: 'Xóa dịch vụ',
                                   ),
                                 ],
                               ),

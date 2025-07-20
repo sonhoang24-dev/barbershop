@@ -30,7 +30,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   @override
   void initState() {
     super.initState();
-    _loadCustomerInfo(); // Load customer info when the widget initializes
+    _loadCustomerInfo();
   }
 
   @override
@@ -42,11 +42,10 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     _loadImages();
   }
 
-  // Load customer name and phone from SharedPreferences using correct keys
   Future<void> _loadCustomerInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    final String? customerName = prefs.getString('name'); // Changed from 'customer_name' to 'name'
-    final String? customerPhone = prefs.getString('phone'); // Changed from 'customer_phone' to 'phone'
+    final String? customerName = prefs.getString('name');
+    final String? customerPhone = prefs.getString('phone');
 
     setState(() {
       if (customerName != null && customerName.isNotEmpty) {
@@ -58,11 +57,10 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     });
   }
 
-  // Save customer name and phone to SharedPreferences
   Future<void> _saveCustomerInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('name', nameController.text.trim()); // Use 'name' key
-    await prefs.setString('phone', phoneController.text.trim()); // Use 'phone' key
+    await prefs.setString('name', nameController.text.trim());
+    await prefs.setString('phone', phoneController.text.trim());
   }
 
   Future<void> _loadEmployees() async {
@@ -138,16 +136,22 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
 
     final slots = <String>[];
     int hour = start.hour;
+    int minute = start.minute;
 
-    while (hour < end.hour) {
-      if (hour < 12 || hour >= 13) {
-        final time = '${hour.toString().padLeft(2, '0')}:00';
+    while (hour < end.hour || (hour == end.hour && minute <= end.minute)) {
+      if (!(hour == 12 && minute == 0) && !(hour == 13 && minute == 0)) {
+        final time = '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
         if (!bookedTimes.contains(time)) {
           slots.add(time);
         }
       }
-      hour++;
+      minute += 30;
+      if (minute >= 60) {
+        minute -= 60;
+        hour += 1;
+      }
     }
+
     return slots;
   }
 
@@ -167,7 +171,86 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
     return NumberFormat("#,##0", "vi_VN").format(parsedAmount.round());
   }
 
+  Future<bool> _checkBookingConflict() async {
+    final prefs = await SharedPreferences.getInstance();
+    final userId = prefs.getInt('id') ?? 0;
+    final currentDate = DateTime.now().toIso8601String().split('T')[0]; // Lấy ngày hiện tại
+    final selectedServiceId = service['id'] ?? 0;
+    final selectedEmployeeId = this.selectedEmployeeId ?? 0;
+    final selectedTimeSlot = selectedTime ?? '';
+
+    // Lấy danh sách các booking hiện có của user
+    final res = await http.get(
+      Uri.parse("https://htdvapple.site/barbershop/backend/services/get_bookings_by_user.php?user_id=$userId"),
+    );
+
+    if (res.statusCode == 200) {
+      final json = jsonDecode(res.body);
+      if (json['success'] == true && json['data'] is List) {
+        final List<Map<String, dynamic>> existingBookings = List<Map<String, dynamic>>.from(json['data']);
+
+        for (var booking in existingBookings) {
+          final bookingStatus = booking['status'] ?? '';
+          final bookingDate = booking['date'] ?? '';
+          final bookingTime = booking['time']?.substring(0, 5) ?? '';
+          final bookingServiceId = booking['service_id'] ?? 0;
+          final bookingEmployeeId = booking['employee_id'] ?? 0;
+
+          // Chỉ kiểm tra các booking cùng ngày
+          if (bookingDate == currentDate) {
+            // Trường hợp 1: Cùng dịch vụ, nhân viên khác
+            if (bookingServiceId == selectedServiceId && bookingEmployeeId != selectedEmployeeId) {
+              if (['Chờ xác nhận', 'Đã xác nhận', 'Đang thực hiện'].contains(bookingStatus)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Bạn đã có đơn dịch vụ này của nhân viên khác."),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return false;
+              }
+            }
+            // Trường hợp 2: Cùng dịch vụ, khác giờ
+            if (bookingServiceId == selectedServiceId && bookingTime != selectedTimeSlot) {
+              if (['Chờ xác nhận', 'Đã xác nhận', 'Đang thực hiện'].contains(bookingStatus)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Bạn đã đặt dịch vụ này với trạng thái chưa hoàn thành. Vui lòng chọn khung giờ khác."),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return false;
+              }
+            }
+            // Trường hợp 3: Dịch vụ khác, giờ trùng
+            if (bookingServiceId != selectedServiceId && bookingTime == selectedTimeSlot) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text("Bạn đã có lịch hẹn khác vào khung giờ này. \n Vui lòng chọn khung giờ khác."),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return false;
+            }
+          }
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Lỗi khi kiểm tra lịch hẹn. Vui lòng thử lại."),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
+    return true;
+  }
+
   Future<void> _saveBookingToServer() async {
+    final isValid = await _checkBookingConflict();
+    if (!isValid) return;
+
     final extras = extraServices
         .where((e) => e['selected'])
         .map((e) => e['name'])
@@ -185,6 +268,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       "note": noteController.text,
       "extras": extras,
       "total_price": total,
+      "date": DateTime.now().toIso8601String().split('T')[0], // Thêm ngày hiện tại
     };
 
     final response = await http.post(
@@ -230,7 +314,16 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Đặt lịch'), backgroundColor: Colors.teal),
+      appBar: AppBar(
+        title: const Text('Đặt lịch', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.teal,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () {
+            Navigator.pop(context);
+          },
+        ),
+      ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: ListView(
@@ -262,7 +355,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
             Text("Giá gốc: ${_formatCurrency(service['price'])} đ",
                 style: const TextStyle(fontSize: 16, color: Colors.teal)),
             const Divider(height: 32),
-            const Text("Thông tin khách hàng", style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text("Thông tin khách hàng", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF000000))),
             const SizedBox(height: 10),
             TextField(
               controller: nameController,
@@ -281,12 +374,12 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
               ),
             ),
             const Divider(height: 32),
-            const Text("Chọn dịch vụ đi kèm", style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text("Chọn dịch vụ đi kèm", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF000000))),
             const SizedBox(height: 10),
             ...extraServices.map((item) => CheckboxListTile(
               title: Text(
                 "${item['name']}\n+${_formatCurrency(item['price'])}đ",
-                style: TextStyle(height: 1.3), // Khoảng cách giữa 2 dòng
+                style: TextStyle(height: 1.3),
               ),
               value: item['selected'],
               onChanged: (val) {
@@ -295,9 +388,9 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
             )),
             const SizedBox(height: 12),
             Text("Tổng cộng: ${_formatCurrency(_calculateTotal())} đ",
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal)),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFB71C1C))),
             const Divider(height: 32),
-            const Text("Chọn nhân viên", style: TextStyle(fontWeight: FontWeight.bold)),
+            const Text("Chọn nhân viên", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF000000))),
             DropdownButton<int>(
               hint: const Text("Chọn nhân viên"),
               value: selectedEmployeeId,
@@ -323,7 +416,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("Chọn thời gian", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text("Chọn thời gian", style: TextStyle(fontWeight: FontWeight.bold, color: Color(0xFF000000))),
                   const SizedBox(height: 8),
                   if (timeSlots.isEmpty)
                     const Text(
@@ -374,11 +467,10 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                   }
                   return;
                 }
-
                 await _saveBookingToServer();
               },
-              icon: const Icon(Icons.check_circle),
-              label: const Text("Xác nhận đặt lịch"),
+              icon: const Icon(Icons.check_circle, color: Colors.white),
+              label: const Text("Xác nhận đặt lịch", style: TextStyle(color: Colors.white)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.teal,
                 padding: const EdgeInsets.symmetric(vertical: 14),

@@ -29,12 +29,28 @@ class _HomeScreenState extends State<HomeScreen> {
       if (!mounted) return;
       setState(() {
         _services = data;
+        _services.sort((a, b) {
+          final dateTimeA = a.createdAt != null ? DateTime.tryParse(a.createdAt!) ?? DateTime(1970) : DateTime(1970);
+          final dateTimeB = b.createdAt != null ? DateTime.tryParse(b.createdAt!) ?? DateTime(1970) : DateTime(1970);
+          return dateTimeB.compareTo(dateTimeA);
+        });
         _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
     }
+  }
+
+  bool _isNewService(String? createdAt) {
+    if (createdAt == null) return false;
+    final date = DateTime.tryParse(createdAt);
+    if (date == null) {
+      return false;
+    }
+    final now = DateTime.now(); // giữ local time
+    final diff = now.difference(date).inDays;
+    return diff <= 7;
   }
 
   @override
@@ -69,6 +85,9 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildServiceCard(Service service) {
+    final isNewService = _isNewService(service.createdAt);
+    final isHighRated = service.rating >= 4.5;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -91,62 +110,113 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         padding: const EdgeInsets.all(8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+        child: Stack(
+          clipBehavior: Clip.none,
           children: [
-            if (service.images.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: _buildServiceImage(service.images.first),
-              )
-            else
-              const Icon(Icons.cut, size: 100, color: Colors.teal),
-            const SizedBox(height: 4),
-            Text(
-              service.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.teal[900],
-              ),
-            ),
-            const SizedBox(height: 4),
-            _buildRatingStars(service.rating),
-            const SizedBox(height: 4),
-            Text(
-              "${formatCurrency.format(service.price)} đ",
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Colors.teal[700],
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 36,
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => ServiceDetailScreen(service: service.toMap()),
-                    ),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal[50],
-                  foregroundColor: Colors.teal[700],
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (service.images.isNotEmpty)
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: _buildServiceImage(service.images.first),
+                  )
+                else
+                  const Icon(Icons.cut, size: 100, color: Colors.teal),
+                const SizedBox(height: 4),
+                Text(
+                  service.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.teal[900],
+                  ),
                 ),
-                child: const Text("Xem chi tiết", style: TextStyle(fontSize: 13)),
-              ),
+                const SizedBox(height: 4),
+                _buildRatingStars(service.rating),
+                const SizedBox(height: 4),
+                Text(
+                  "${formatCurrency.format(service.price)} đ",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.teal[700],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 36,
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ServiceDetailScreen(service: service.toMap()),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.teal[50],
+                      foregroundColor: Colors.teal[700],
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                    child: const Text("Xem chi tiết", style: TextStyle(fontSize: 13)),
+                  ),
+                ),
+              ],
             ),
+            if (isNewService)
+              Positioned(
+                top: 0,
+                left: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: const BoxDecoration(
+                    color: Colors.redAccent,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    "Dịch vụ mới",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            if (isHighRated)
+              Positioned(
+                top: 0,
+                left: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: const BoxDecoration(
+                    color: Colors.amber,
+                    borderRadius: BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(8),
+                    ),
+                  ),
+                  child: const Text(
+                    "Đánh giá cao",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

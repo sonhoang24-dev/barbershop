@@ -150,7 +150,7 @@ class _StatisticsDashboardScreenState extends State<StatisticsDashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Báo cáo & Thống kê'),
+        title: const Text('Thống kê', style: TextStyle(color:  Colors.white, fontWeight: FontWeight.bold),),
         backgroundColor: Colors.teal,
         actions: [
           IconButton(

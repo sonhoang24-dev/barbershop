@@ -124,10 +124,13 @@ class ApiService {
   static Future<List<Service>> fetchAllServicesForAdmin({String search = '', String status = ''}) async {
     final queryParams = {
       if (search.isNotEmpty) 'search': search,
-      if (status.isNotEmpty) 'status': status,
+      if (status.isNotEmpty && status != 'Tất cả') 'status': status,
     };
+
     final uri = Uri.parse('$baseUrl/services/list_for_admin.php').replace(queryParameters: queryParams);
+    print('API CALL: $uri'); // debug
     final response = await http.get(uri);
+
     if (response.statusCode == 200 && response.body.isNotEmpty) {
       final body = jsonDecode(response.body);
       if (body['success'] == true && body['data'] is List) {
@@ -136,6 +139,7 @@ class ApiService {
     }
     throw Exception('Không tải được dịch vụ (admin)');
   }
+
 
   static Future<Map<String, dynamic>> addOrUpdateService({
     required String name,
@@ -254,7 +258,7 @@ class ApiService {
     required List<int> serviceIds,
     required String status,
   }) async {
-    final response = await http.post(
+    final response = await http.put( // Thay đổi từ post sang put
       Uri.parse('$baseUrl/employees/update_employee.php'),
       headers: {"Content-Type": "application/json"},
       body: jsonEncode({
@@ -266,8 +270,14 @@ class ApiService {
         "status": status,
       }),
     );
-    return jsonDecode(response.body)['success'] == true;
+    final responseBody = jsonDecode(response.body);
+    print('Phản hồi API updateEmployee: ${response.statusCode} - $responseBody');
+    if (response.statusCode != 200 || responseBody['success'] != true) {
+      throw Exception('Cập nhật thất bại: ${responseBody['message'] ?? responseBody}');
+    }
+    return responseBody['success'] == true;
   }
+
 
   static Future<List<Service>> fetchEmployeeServices(int employeeId) async {
     final url = Uri.parse('$baseUrl/employees/employee_services.php?id=$employeeId');

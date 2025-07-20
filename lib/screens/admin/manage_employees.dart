@@ -140,15 +140,17 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     }
 
     Set<int> selectedServiceIds = {};
+    Set<int> originalServiceIds = {}; // Lưu danh sách ban đầu để so sánh
     try {
       final currentServices = await ApiService.fetchEmployeeServices(emp.id);
       selectedServiceIds.addAll(currentServices.map((s) => s.id));
+      originalServiceIds.addAll(currentServices.map((s) => s.id));
     } catch (e) {
       _showErrorDialog('Lỗi tải dịch vụ: ${e.toString()}');
       return;
     }
 
-    final isResigned = emp.status == 'Đã nghỉ việc'; // Check if employee is resigned
+    final isResigned = emp.status == 'Đã nghỉ việc';
 
     showDialog(
       context: context,
@@ -292,11 +294,17 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
+                    Text(
+                      'Đã chọn ${selectedServiceIds.length} dịch vụ',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 4),
                     ..._services.map((service) => CheckboxListTile(
                       title: Text(service.title, style: const TextStyle(fontSize: 14)),
                       value: selectedServiceIds.contains(service.id),
                       activeColor: const Color(0xFF0288D1),
                       checkColor: Colors.white,
+                      enabled: !isResigned,
                       onChanged: isResigned
                           ? null
                           : (bool? selected) {
@@ -323,7 +331,16 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                     backgroundColor: const Color(0xFF0288D1),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                   ),
-                  onPressed: () async {
+                  onPressed: nameController.text.trim() == emp.fullName &&
+                      phoneController.text.trim() == emp.phone &&
+                      startTime != null &&
+                      endTime != null &&
+                      '${startTime?.hour.toString().padLeft(2, '0')}:00 - ${endTime?.hour.toString().padLeft(2, '0')}:00' ==
+                          emp.workingHours &&
+                      selectedServiceIds.toSet() == originalServiceIds &&
+                      selectedStatus == emp.status
+                      ? null
+                      : () async {
                     setStateDialog(() {
                       _errorMessage = null;
                       _successMessage = null;
@@ -335,7 +352,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         endTime == null ||
                         selectedServiceIds.isEmpty) {
                       setStateDialog(() {
-                        _errorMessage = 'Vui lòng nhập đầy đủ thông tin';
+                        _errorMessage = 'Vui lòng nhập đầy đủ thông tin và chọn ít nhất một dịch vụ';
                       });
                       return;
                     }
@@ -354,10 +371,19 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       return;
                     }
 
+                    if (isResigned && selectedServiceIds != originalServiceIds) {
+                      setStateDialog(() {
+                        _errorMessage = 'Không thể cập nhật dịch vụ cho nhân viên đã nghỉ việc';
+                      });
+                      return;
+                    }
+
                     final workingHours =
                         '${startTime!.hour.toString().padLeft(2, '0')}:00 - ${endTime!.hour.toString().padLeft(2, '0')}:00';
 
                     try {
+                      print(
+                          'Cập nhật nhân viên: id=${emp.id}, fullName=${nameController.text}, phone=${phoneController.text}, workingHours=$workingHours, serviceIds=$selectedServiceIds, status=$selectedStatus');
                       final success = await ApiService.updateEmployee(
                         id: emp.id,
                         fullName: nameController.text.trim(),
@@ -366,6 +392,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         serviceIds: selectedServiceIds.toList(),
                         status: selectedStatus,
                       );
+                      print('Kết quả API: $success');
                       if (success) {
                         setStateDialog(() {
                           _successMessage = 'Cập nhật thành công';
@@ -388,6 +415,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         });
                       }
                     } catch (e) {
+                      print('Lỗi API: $e');
                       setStateDialog(() {
                         _errorMessage = 'Lỗi: ${e.toString()}';
                       });
@@ -417,6 +445,10 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
 
     try {
       _services = await ApiService.fetchServices();
+      if (_services.isEmpty) {
+        _showErrorDialog('Không có dịch vụ nào để chọn');
+        return;
+      }
     } catch (e) {
       _showErrorDialog('Lỗi lấy danh sách dịch vụ: ${e.toString()}');
       return;
@@ -535,6 +567,11 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                       ),
                     ),
                     const SizedBox(height: 4),
+                    Text(
+                      'Đã chọn ${selectedServiceIds.length} dịch vụ',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 4),
                     ..._services.map((service) => CheckboxListTile(
                       title: Text(service.title, style: const TextStyle(fontSize: 14)),
                       value: selectedServiceIds.contains(service.id),
@@ -579,7 +616,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         endTime == null ||
                         selectedServiceIds.isEmpty) {
                       setStateDialog(() {
-                        _errorMessage = 'Vui lòng nhập đầy đủ thông tin';
+                        _errorMessage = 'Vui lòng nhập đầy đủ thông tin và chọn ít nhất một dịch vụ';
                       });
                       return;
                     }
@@ -602,6 +639,8 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         '${startTime!.hour.toString().padLeft(2, '0')}:00 - ${endTime!.hour.toString().padLeft(2, '0')}:00';
 
                     try {
+                      print(
+                          'Thêm nhân viên: fullName=$name, phone=$phone, workingHours=$workingHours, serviceIds=$selectedServiceIds, status=Đang hoạt động');
                       final success = await ApiService.addEmployeeWithServices(
                         fullName: name,
                         phone: phone,
@@ -609,7 +648,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         serviceIds: selectedServiceIds.toList(),
                         status: 'Đang hoạt động',
                       );
-
+                      print('Kết quả API: $success');
                       if (success) {
                         setStateDialog(() {
                           _successMessage = 'Thêm nhân viên thành công';
@@ -632,6 +671,7 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
                         });
                       }
                     } catch (e) {
+                      print('Lỗi API: $e');
                       setStateDialog(() {
                         _errorMessage = 'Lỗi: ${e.toString()}';
                       });
@@ -681,83 +721,85 @@ class _ManageEmployeesScreenState extends State<ManageEmployeesScreen> {
     final statusColor = emp.status == 'Đang hoạt động' ? Colors.green : Colors.red;
 
     return Card(
-      margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      elevation: 4,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            CircleAvatar(
-              radius: 30,
-              backgroundColor: Colors.grey[200],
-              child: const Icon(
-                Icons.person,
-                color: Color(0xFF0288D1),
-                size: 30,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    emp.fullName,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'SĐT: ${emp.phone}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Giờ làm: \n${emp.workingHours}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Dịch vụ: ${emp.serviceNames.isEmpty ? 'Chưa có' : emp.serviceNames}',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    maxLines: null,
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(Icons.circle, color: statusColor, size: 12),
-                      const SizedBox(width: 4),
-                      Text(
-                        emp.status,
-                        style: TextStyle(
-                          fontSize: 14,
-                          color: statusColor,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            IconButton(
-              icon: const Icon(
-                Icons.edit,
-                color: Color(0xFF0288D1),
-                size: 24,
-              ),
-              onPressed: () => _showEditEmployeeDialog(emp),
-            ),
-          ],
-        ),
+        margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+        shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
       ),
+      elevation: 4,
+    child: Padding(
+    padding: const EdgeInsets.all(16),
+    child: Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    CircleAvatar(
+    radius: 30,
+    backgroundColor: Colors.grey[200],
+    child: const Icon(
+    Icons.person,
+    color: Color(0xFF0288D1),
+    size: 30,
+    ),
+    ),
+    const SizedBox(width: 12),
+    Expanded(
+    child: Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+    Text(
+    emp.fullName,
+    style: const TextStyle(
+    fontSize: 16,
+    fontWeight: FontWeight.w600,
+    color: Colors.black87,
+    ),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    ),
+    const SizedBox(height: 4),
+    Text(
+    'SĐT: ${emp.phone}',
+    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+    ),
+    const SizedBox(height: 4),
+    Text(
+    'Giờ làm: \n${emp.workingHours}',
+    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+    ),
+    const SizedBox(height: 4),
+    Text(
+    'Dịch vụ: ${emp.serviceNames.isEmpty ? 'Chưa có' : emp.serviceNames}',
+    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+    maxLines: null,
+    ),
+    const SizedBox(height: 4),
+    Row(
+    children: [
+    Icon(Icons.circle, color: statusColor, size: 12),
+    const SizedBox(width: 4),
+    Text(
+    emp.status,
+    style: TextStyle(
+    fontSize: 14,
+    color: statusColor,
+    fontWeight: FontWeight.w500,
+    ),
+    ),
+    ],
+    ),
+    ],
+    ),
+    ),
+    IconButton(
+    icon: const Icon(
+    Icons.edit,
+    color: Color(0xFF0288D1),
+    size: 24,
+    ),
+    onPressed: () => _showEditEmployeeDialog(emp),
+    ),
+    ],
+    ),
+    ),
     );
   }
 

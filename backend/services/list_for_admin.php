@@ -4,7 +4,6 @@ require_once("../db.php");
 header("Access-Control-Allow-Origin: *");
 header("Content-Type: application/json; charset=UTF-8");
 
-// Ensure UTF-8 encoding for the database connection
 $conn->set_charset("utf8mb4");
 
 $search = isset($_GET['search']) ? $conn->real_escape_string(trim($_GET['search'])) : '';
@@ -28,7 +27,7 @@ if (!empty($search)) {
     $sql .= " AND s.name LIKE '%$search%'";
 }
 
-if (!empty($status)) {
+if ($status !== '' && strtolower($status) !== 'tất cả') {
     $sql .= " AND s.status = '$status'";
 }
 
@@ -38,6 +37,8 @@ ORDER BY s.id DESC
 ";
 
 $res = $conn->query($sql);
+
+// Lấy ảnh dịch vụ
 $imageMap = [];
 $imgRes = $conn->query("SELECT service_id, image FROM service_images");
 while ($row = $imgRes->fetch_assoc()) {
@@ -47,10 +48,10 @@ while ($row = $imgRes->fetch_assoc()) {
 }
 
 $services = [];
-
 while ($row = $res->fetch_assoc()) {
     $sid = $row['id'];
     $extras = [];
+
     $extraRes = $conn->query("SELECT id, name, price FROM extra_services WHERE main_service_id = $sid");
     while ($e = $extraRes->fetch_assoc()) {
         $extras[] = [
