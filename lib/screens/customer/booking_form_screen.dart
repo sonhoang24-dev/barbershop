@@ -111,44 +111,38 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       final data = jsonDecode(res.body);
       setState(() {
         bookedTimes = List<String>.from(data);
-        final selectedEmp = employees.firstWhere(
-              (e) => int.tryParse(e['id'].toString()) == employeeId,
-          orElse: () => {'working_hours': '08:00-17:00'},
-        );
-        timeSlots = _generateTimeSlots(selectedEmp['working_hours'] ?? '08:00-17:00');
+        timeSlots = _generateTimeSlots('');
         selectedTime = null;
       });
     }
   }
 
   List<String> _generateTimeSlots(String workingHours) {
-    final parts = workingHours.split('-');
-    if (parts.length != 2) return [];
-
-    final start = TimeOfDay(
-      hour: int.parse(parts[0].split(':')[0]),
-      minute: int.parse(parts[0].split(':')[1]),
-    );
-    final end = TimeOfDay(
-      hour: int.parse(parts[1].split(':')[0]),
-      minute: int.parse(parts[1].split(':')[1]),
-    );
+    // Các khung giờ cố định theo yêu cầu
+    final List<Map<String, int>> timeRanges = [
+      {'startHour': 8, 'startMinute': 0, 'endHour': 12, 'endMinute': 0}, // Sáng: 8:00-11:30
+      {'startHour': 13, 'startMinute': 0, 'endHour': 17, 'endMinute': 0}, // Chiều: 13:00-16:30
+      {'startHour': 18, 'startMinute': 0, 'endHour': 22, 'endMinute': 0}, // Tối: 18:00-21:30
+    ];
 
     final slots = <String>[];
-    int hour = start.hour;
-    int minute = start.minute;
 
-    while (hour < end.hour || (hour == end.hour && minute <= end.minute)) {
-      if (!(hour == 12 && minute == 0) && !(hour == 13 && minute == 0)) {
+    for (var range in timeRanges) {
+      int hour = range['startHour']!;
+      int minute = range['startMinute']!;
+      final endHour = range['endHour']!;
+      final endMinute = range['endMinute']!;
+
+      while (hour < endHour || (hour == endHour && minute < endMinute)) {
         final time = '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
         if (!bookedTimes.contains(time)) {
           slots.add(time);
         }
-      }
-      minute += 30;
-      if (minute >= 60) {
-        minute -= 60;
-        hour += 1;
+        minute += 30;
+        if (minute >= 60) {
+          minute -= 60;
+          hour += 1;
+        }
       }
     }
 
@@ -174,12 +168,11 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
   Future<bool> _checkBookingConflict() async {
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('id') ?? 0;
-    final currentDate = DateTime.now().toIso8601String().split('T')[0]; // Lấy ngày hiện tại
+    final currentDate = DateTime.now().toIso8601String().split('T')[0];
     final selectedServiceId = service['id'] ?? 0;
     final selectedEmployeeId = this.selectedEmployeeId ?? 0;
     final selectedTimeSlot = selectedTime ?? '';
 
-    // Lấy danh sách các booking hiện có của user
     final res = await http.get(
       Uri.parse("https://htdvapple.site/barbershop/backend/services/get_bookings_by_user.php?user_id=$userId"),
     );
@@ -196,9 +189,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
           final bookingServiceId = booking['service_id'] ?? 0;
           final bookingEmployeeId = booking['employee_id'] ?? 0;
 
-          // Chỉ kiểm tra các booking cùng ngày
           if (bookingDate == currentDate) {
-            // Trường hợp 1: Cùng dịch vụ, nhân viên khác
             if (bookingServiceId == selectedServiceId && bookingEmployeeId != selectedEmployeeId) {
               if (['Chờ xác nhận', 'Đã xác nhận', 'Đang thực hiện'].contains(bookingStatus)) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -210,7 +201,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                 return false;
               }
             }
-            // Trường hợp 2: Cùng dịch vụ, khác giờ
             if (bookingServiceId == selectedServiceId && bookingTime != selectedTimeSlot) {
               if (['Chờ xác nhận', 'Đã xác nhận', 'Đang thực hiện'].contains(bookingStatus)) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -222,7 +212,6 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                 return false;
               }
             }
-            // Trường hợp 3: Dịch vụ khác, giờ trùng
             if (bookingServiceId != selectedServiceId && bookingTime == selectedTimeSlot) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -268,7 +257,7 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
       "note": noteController.text,
       "extras": extras,
       "total_price": total,
-      "date": DateTime.now().toIso8601String().split('T')[0], // Thêm ngày hiện tại
+      "date": DateTime.now().toIso8601String().split('T')[0],
     };
 
     final response = await http.post(
@@ -403,12 +392,10 @@ class _BookingFormScreenState extends State<BookingFormScreen> {
                 selectedEmployeeId = value;
                 final selectedEmp = employees.firstWhere(
                       (e) => int.tryParse(e['id'].toString()) == value,
-                  orElse: () => {'full_name': '', 'working_hours': '08:00-17:00'},
+                  orElse: () => {'full_name': ''},
                 );
                 selectedEmployeeName = selectedEmp['full_name'];
                 await _loadBookedTimes(value!);
-                timeSlots = _generateTimeSlots(selectedEmp['working_hours'] ?? '08:00-17:00');
-                selectedTime = null;
                 setState(() {});
               },
             ),

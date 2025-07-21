@@ -6,14 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'booking_detail_screen.dart';
-
-final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
-
-Future<void> _initializeLocalNotifications() async {
-  const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const InitializationSettings settings = InitializationSettings(android: androidSettings);
-  await _flutterLocalNotificationsPlugin.initialize(settings);
-}
+import 'package:Barbershopdht/services/notification_service.dart';
 
 class BookingListScreen extends StatefulWidget {
   final VoidCallback? onNotificationChanged;
@@ -36,7 +29,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _initializeLocalNotifications();
+    initializeLocalNotifications();
     _loadBookings();
     _loadNotifications();
     _startPolling();
@@ -72,15 +65,14 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
 
   Future<void> _loadBookings() async {
     final now = DateTime.now();
-    if (_lastLoadTime != null && now.difference(_lastLoadTime!).inSeconds < 15) {
-      return;
-    }
+    if (_lastLoadTime != null && now.difference(_lastLoadTime!).inSeconds < 15) return;
     _lastLoadTime = now;
 
     setState(() => isLoading = true);
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('id') ?? 0;
     final url = Uri.parse("https://htdvapple.site/barbershop/backend/services/get_bookings_by_user.php?user_id=$userId");
+
     try {
       final res = await http.get(url).timeout(const Duration(seconds: 10));
       if (res.statusCode == 200) {
@@ -91,47 +83,51 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
 
           final oldStatusList = prefs.getStringList('booking_status_list') ?? [];
           final Map<String, String> oldStatusMap = {
-            for (var status in oldStatusList) status.split(':')[0]: status.split(':')[1]
+            for (var status in oldStatusList)
+              status.split(':')[0].trim(): status.split(':')[1].trim(),
           };
 
-          final newStatus = newBookings.map((e) => '${e['id']}:${e['status']}').toList();
-          final Map<String, String> newStatusMap = {
-            for (var status in newStatus) status.split(':')[0]: status.split(':')[1]
-          };
-
-          List<Map<String, dynamic>> tempNotifications = List.from(notifications);
+          final List<Map<String, dynamic>> tempNotifications = List.from(notifications);
 
           for (var booking in newBookings) {
-            final bookingId = booking['id'].toString();
-            final newBookingStatus = booking['status'];
+            final bookingId = booking['id'].toString().trim();
+            final newBookingStatus = (booking['status'] ?? 'Không xác định').trim();
             final oldBookingStatus = oldStatusMap[bookingId];
 
-            // Check for new bookings or status changes
+            print('Kiểm tra booking $bookingId: old = $oldBookingStatus | new = $newBookingStatus');
+
             if (oldBookingStatus == null || oldBookingStatus != newBookingStatus) {
               final serviceName = booking['service'] ?? 'Dịch vụ';
               final date = booking['date'] ?? 'N/A';
               final time = booking['time']?.substring(0, 5) ?? 'N/A';
               final formattedDateTime = _formatBookingDateTime(date, time);
+
               final message = oldBookingStatus == null
                   ? 'Lịch hẹn mới: $serviceName vào $formattedDateTime'
-                  : 'Lịch hẹn $serviceName vào $formattedDateTime đã được cập nhật thành: $newBookingStatus';
+                  : '$newBookingStatus: Lịch hẹn $serviceName vào $formattedDateTime';
+
+              final iconName = oldBookingStatus == null ? 'ic_calendar' : 'ic_notification';
+
               tempNotifications.add({
                 'id': bookingId,
                 'message': message,
                 'timestamp': DateTime.now().toIso8601String(),
               });
+
               await _showSystemNotification(
                 oldBookingStatus == null ? 'Lịch hẹn mới' : 'Cập nhật lịch hẹn',
                 message,
+                iconName,
               );
             }
           }
 
-          await prefs.setStringList('booking_status_list', newStatus);
-          await prefs.setStringList(
-            'notifications',
-            tempNotifications.map((n) => jsonEncode(n)).toList(),
-          );
+          final newStatusList = newBookings.map((e) =>
+          '${e['id'].toString().trim()}:${(e['status'] ?? 'Không xác định').trim()}'
+          ).toList();
+
+          await prefs.setStringList('booking_status_list', newStatusList);
+          await prefs.setStringList('notifications', tempNotifications.map((n) => jsonEncode(n)).toList());
 
           setState(() {
             bookings = newBookings;
@@ -194,16 +190,25 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   }
 
   Future<void> _removeNotification(int index) async {
+    if (index < 0 || index >= notifications.length) {
+      print('Invalid index: $index, notifications length: ${notifications.length}');
+      return;
+    }
+    print('Removing notification at index: $index');
     final prefs = await SharedPreferences.getInstance();
     final notification = notifications[index];
+    print('Notification to remove: $notification');
+    print('Before removal: ${notifications.length} notifications');
     setState(() {
       notifications.removeAt(index);
       hasNewStatus = notifications.any((n) => !viewedNotifications.contains(n['timestamp']));
     });
+    print('After removal: ${notifications.length} notifications');
     await prefs.setStringList(
       'notifications',
       notifications.map((n) => jsonEncode(n)).toList(),
     );
+    print('Saved notifications to SharedPreferences: ${notifications.length} items');
     widget.onNotificationChanged?.call();
   }
 
@@ -255,18 +260,19 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
     }
   }
 
-  Future<void> _showSystemNotification(String title, String body) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+  Future<void> _showSystemNotification(String title, String body, String iconName) async {
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'booking_channel_id',
       'Booking Notifications',
       channelDescription: 'Thông báo lịch hẹn',
       importance: Importance.max,
       priority: Priority.high,
+      icon: iconName,
     );
 
-    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+    final NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
 
-    await _flutterLocalNotificationsPlugin.show(
+    await flutterLocalNotificationsPlugin.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
       title,
       body,
@@ -277,90 +283,89 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   void _showNotificationsDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Thông báo'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: notifications.isEmpty
-              ? const Text('Chưa có thông báo nào.')
-              : ListView.builder(
-            shrinkWrap: true,
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final notification = notifications[index];
-              return ListTile(
-                title: Text(notification['message']),
-                subtitle: Text(_formatDateTime(notification['timestamp'])),
-                trailing: IconButton(
-                  icon: const Icon(Icons.close, color: Colors.red),
-                  onPressed: () async {
-                    await _removeNotification(index);
-                  },
-                ),
-                onTap: () async {
-                  // Mark all notifications as viewed and clear them
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('Thông báo'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: notifications.isEmpty
+                  ? const Text('Chưa có thông báo nào.')
+                  : ListView.builder(
+                shrinkWrap: true,
+                itemCount: notifications.length,
+                itemBuilder: (context, index) {
+                  final notification = notifications[index];
+                  return ListTile(
+                    title: Text(notification['message']),
+                    subtitle: Text(_formatDateTime(notification['timestamp'])),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: () async {
+                        await _removeNotification(index);
+                        setDialogState(() {}); // Làm mới dialog
+                      },
+                    ),
+                    onTap: () async {
+                      await _markNotificationsAsViewed();
+                      Navigator.pop(context);
+                      if (notification['id'] != null) {
+                        final bookingIndex = bookings.indexWhere((b) => b['id'].toString() == notification['id']);
+                        if (bookingIndex != -1) {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => BookingDetailScreen(
+                                booking: Map<String, dynamic>.from(bookings[bookingIndex]),
+                                bookingIndex: bookingIndex,
+                              ),
+                            ),
+                          );
+                          if (result != null && result is Map && result['updated'] == true) {
+                            setState(() {
+                              if (result['rating'] != null && result['rating'] is num) {
+                                bookings[bookingIndex]['rating'] = result['rating'];
+                              }
+                              if (result['new_status'] != null && result['new_status'] is String) {
+                                bookings[bookingIndex]['status'] = result['new_status'];
+                              }
+                            });
+                            await _loadBookings();
+                          }
+                        }
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+            actions: [
+              TextButton(
+                child: const Text('Xóa tất cả'),
+                onPressed: () async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.remove('notifications');
+                  await prefs.remove('viewed_notifications');
+                  setState(() {
+                    notifications = [];
+                    viewedNotifications = [];
+                    hasNewStatus = false;
+                  });
+                  Navigator.pop(context);
+                  widget.onNotificationChanged?.call();
+                },
+              ),
+              TextButton(
+                child: const Text('Đóng'),
+                onPressed: () async {
                   await _markNotificationsAsViewed();
                   Navigator.pop(context);
-                  // Navigate to the booking detail if notification has a booking ID
-                  if (notification['id'] != null) {
-                    final bookingIndex = bookings.indexWhere((b) => b['id'].toString() == notification['id']);
-                    if (bookingIndex != -1) {
-                      final result = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => BookingDetailScreen(
-                            booking: Map<String, dynamic>.from(bookings[bookingIndex]),
-                            bookingIndex: bookingIndex,
-                          ),
-                        ),
-                      );
-                      if (result != null && result is Map && result['updated'] == true) {
-                        setState(() {
-                          if (result['rating'] != null && result['rating'] is num) {
-                            bookings[bookingIndex]['rating'] = result['rating'];
-                          }
-                          if (result['new_status'] != null && result['new_status'] is String) {
-                            bookings[bookingIndex]['status'] = result['new_status'];
-                          }
-                        });
-                        await _loadBookings();
-                      }
-                    }
-                  }
                 },
-              );
-            },
+              ),
+            ],
           ),
-        ),
-        actions: [
-          TextButton(
-            child: const Text('Xóa tất cả'),
-            onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.remove('notifications');
-              await prefs.remove('viewed_notifications');
-              setState(() {
-                notifications = [];
-                viewedNotifications = [];
-                hasNewStatus = false;
-              });
-              if (context.mounted) {
-                Navigator.pop(context);
-                widget.onNotificationChanged?.call();
-              }
-            },
-          ),
-          TextButton(
-            child: const Text('Đóng'),
-            onPressed: () async {
-              await _markNotificationsAsViewed();
-              if (context.mounted) {
-                Navigator.pop(context);
-              }
-            },
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -431,7 +436,6 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
               contentPadding: const EdgeInsets.all(12),
               onTap: () async {
                 final bookingId = booking['id'].toString();
-                // Mark related notification as viewed
                 setState(() {
                   notifications.removeWhere((n) => n['id'] == bookingId);
                   viewedNotifications.addAll(notifications.map((n) => n['timestamp'].toString()));

@@ -367,8 +367,8 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
               Align(
                 alignment: Alignment.center,
                 child: ElevatedButton.icon(
-                  icon: const Icon(Icons.check_circle),
-                  label: const Text("Gửi đánh giá"),
+                  icon: const Icon(Icons.check_circle, color: Colors.white,),
+                  label: const Text("Gửi đánh giá", style: TextStyle(color: Colors.white),),
                   onPressed: _saveReview,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.teal,

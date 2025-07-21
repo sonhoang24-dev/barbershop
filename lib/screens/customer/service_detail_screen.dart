@@ -87,6 +87,22 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                 color: Colors.teal,
               ),
             ),
+            const SizedBox(height: 30),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                icon: const Icon(Icons.calendar_today, color: Colors.white),
+                label: const Text("Đặt lịch ngay", style: TextStyle(color: Colors.white),),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                onPressed: () {
+                  Navigator.pushNamed(context, '/booking_form', arguments: service);
+                },
+              ),
+            ),
             const SizedBox(height: 20),
             _buildRatingStars(rating),
             const SizedBox(height: 16),
@@ -113,22 +129,7 @@ class _ServiceDetailScreenState extends State<ServiceDetailScreen> {
                   ),
                 ),
               ),
-            const SizedBox(height: 30),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.calendar_today, color: Colors.white),
-                label: const Text("Đặt lịch ngay", style: TextStyle(color: Colors.white),),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.teal,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-                onPressed: () {
-                  Navigator.pushNamed(context, '/booking_form', arguments: service);
-                },
-              ),
-            ),
+
           ],
         ),
       ),

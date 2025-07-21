@@ -1,10 +1,22 @@
 import 'dart:async';
+import 'package:Barbershopdht/services/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:badges/badges.dart' as badges;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../models/booking.dart';
 import '../../services/api_service.dart';
 import 'appointment_detail_admin_screen.dart';
+
+final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+Future<void> _initializeLocalNotifications() async {
+  const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const InitializationSettings settings = InitializationSettings(android: androidSettings);
+  final bool? initialized = await _flutterLocalNotificationsPlugin.initialize(settings);
+  print('Local Notifications Initialized: $initialized');
+}
 
 class AppointmentListAdminScreen extends StatefulWidget {
   const AppointmentListAdminScreen({super.key});
@@ -23,13 +35,20 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
   int _newBookingCount = 0;
   List<Booking> _newBookings = [];
   Set<int> _handledBookingIds = {};
+  Set<int> _notifiedBookingIds = {};
+  DateTime? _lastCheckTime;
 
   @override
   void initState() {
     super.initState();
-    _fetchBookings();
-    _searchController.addListener(() => _onSearchChanged(_searchController.text));
-    _startNotificationCheck();
+    _initializeLocalNotifications();
+    _loadHandledBookingIds().then((_) {
+      _loadNotifiedBookingIds().then((_) {
+        _fetchBookings();
+        _searchController.addListener(() => _onSearchChanged(_searchController.text));
+        _startNotificationCheck();
+      });
+    });
   }
 
   @override
@@ -40,21 +59,129 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
     super.dispose();
   }
 
+  Future<void> _loadHandledBookingIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final handledIds = prefs.getStringList('handledBookingIds')?.map((id) => int.parse(id)).toSet() ?? <int>{};
+    setState(() {
+      _handledBookingIds = handledIds;
+    });
+    print('Loaded handledBookingIds: $_handledBookingIds');
+  }
+
+  Future<void> _loadNotifiedBookingIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final notifiedIds = prefs.getStringList('notifiedBookingIds')?.map((id) => int.parse(id)).toSet() ?? <int>{};
+    setState(() {
+      _notifiedBookingIds = notifiedIds;
+    });
+    print('Loaded notifiedBookingIds: $_notifiedBookingIds');
+  }
+
+  Future<void> _saveHandledBookingIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('handledBookingIds', _handledBookingIds.map((id) => id.toString()).toList());
+    print('Saved handledBookingIds: $_handledBookingIds');
+  }
+
+  Future<void> _saveNotifiedBookingIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('notifiedBookingIds', _notifiedBookingIds.map((id) => id.toString()).toList());
+    print('Saved notifiedBookingIds: $_notifiedBookingIds');
+  }
+
+  Future<void> _resetHandledBookingIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('handledBookingIds');
+    await prefs.remove('notifiedBookingIds');
+    setState(() {
+      _handledBookingIds.clear();
+      _notifiedBookingIds.clear();
+      _newBookings.clear();
+      _newBookingCount = 0;
+    });
+    await _saveHandledBookingIds();
+    await _saveNotifiedBookingIds();
+    _fetchBookings();
+    print('Reset handledBookingIds and notifiedBookingIds');
+  }
+
+  void _markBookingAsHandled(int bookingId) {
+    setState(() {
+      _handledBookingIds.add(bookingId);
+      _newBookings.removeWhere((b) => b.id == bookingId);
+      _newBookingCount = _newBookings.length;
+    });
+    _saveHandledBookingIds();
+  }
+
   void _startNotificationCheck() {
-    _notificationTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+    _notificationTimer?.cancel();
+    _notificationTimer = Timer.periodic(const Duration(seconds: 3), (timer) async {
+      if (!mounted) {
+        print('Widget not mounted, skipping notification check');
+        return;
+      }
       try {
         final bookings = await ApiService.getBookings(status: 'Chờ xác nhận');
-        if (mounted) {
-          final newOnes = bookings?.where((b) => !_handledBookingIds.contains(b.id)).toList() ?? [];
+        if (bookings == null) {
+          print('No bookings returned from API');
+          return;
+        }
+
+        final now = DateTime.now();
+        final newOnes = bookings.where((b) {
+          final createdAt = DateTime.tryParse(b.createdAt ?? '') ?? DateTime(1970);
+          return !_handledBookingIds.contains(b.id) && now.difference(createdAt).inSeconds <= 30;
+        }).toList();
+
+        if (newOnes.isNotEmpty) {
+          final newNotifications = newOnes.where((b) => !_notifiedBookingIds.contains(b.id)).toList();
           setState(() {
             _newBookings = newOnes;
             _newBookingCount = newOnes.length;
           });
+
+          for (var booking in newNotifications) {
+            await _showSystemNotification(
+              'Đơn hàng mới',
+              'Khách: ${booking.customerName ?? 'ẩn danh'} - Dịch vụ: ${booking.serviceName ?? ''} lúc ${booking.time ?? ''}',
+            );
+            setState(() {
+              _notifiedBookingIds.add(booking.id);
+            });
+            await _saveNotifiedBookingIds();
+          }
+          print('New bookings detected: ${newOnes.map((b) => b.id).toList()}');
+        } else {
+          print('No new bookings detected');
         }
+        _lastCheckTime = now;
       } catch (e) {
-        print('Lỗi khi kiểm tra đơn hàng mới: $e');
+        print('Error in notification check: $e');
       }
     });
+  }
+
+  Future<void> _showSystemNotification(String title, String body) async {
+    try {
+      const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+        'new_booking_channel',
+        'New Booking Notifications',
+        channelDescription: 'Thông báo về các đơn hàng mới',
+        importance: Importance.max,
+        priority: Priority.high,
+      );
+      const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+      await _flutterLocalNotificationsPlugin.show(
+        DateTime.now().millisecondsSinceEpoch ~/ 1000,
+        title,
+        body,
+        platformDetails,
+      );
+      print('System Notification Shown: $title - $body');
+    } catch (e) {
+      print('Error showing system notification: $e');
+    }
   }
 
   Future<void> _fetchBookings() async {
@@ -72,13 +199,14 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
         final dateTimeB = b.createdAt != null ? DateTime.tryParse(b.createdAt!) ?? DateTime(1970) : DateTime(1970);
         return dateTimeB.compareTo(dateTimeA);
       });
-      if (mounted && bookings != null) {
+      if (mounted) {
         setState(() {
           isLoading = false;
         });
+        // Kích hoạt kiểm tra thông báo ngay sau khi tải danh sách đơn hàng
+        _startNotificationCheck();
       }
     } catch (e) {
-      print('Error fetching bookings: $e');
       if (mounted) {
         setState(() => isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
@@ -133,24 +261,15 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
                   trailing: IconButton(
                     icon: const Icon(Icons.close, color: Colors.red),
                     onPressed: () {
-                      setState(() {
-                        _handledBookingIds.add(booking.id);
-                        _newBookings.removeAt(index);
-                        _newBookingCount = _newBookings.length;
-                      });
-                      setDialogState(() {}); // Cập nhật giao diện dialog
+                      _markBookingAsHandled(booking.id);
+                      setDialogState(() {});
                     },
                   ),
                   onTap: () async {
-                    setState(() {
-                      // Đánh dấu tất cả là đã xem
-                      for (var booking in _newBookings) {
-                        _handledBookingIds.add(booking.id);
-                      }
-                      _newBookings.clear();
-                      _newBookingCount = 0;
-                    });
-                    Navigator.pop(context); // Đóng dialog
+                    for (var booking in _newBookings) {
+                      _markBookingAsHandled(booking.id);
+                    }
+                    Navigator.pop(context);
                     final updated = await Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -177,17 +296,20 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
           actions: [
             TextButton(
               onPressed: () {
-                setState(() {
-                  // Đánh dấu tất cả là đã xem
-                  for (var booking in _newBookings) {
-                    _handledBookingIds.add(booking.id);
-                  }
-                  _newBookings.clear();
-                  _newBookingCount = 0;
-                });
+                for (var booking in _newBookings) {
+                  _markBookingAsHandled(booking.id);
+                }
                 Navigator.pop(context);
               },
               child: const Text('Đóng'),
+            ),
+            TextButton(
+              onPressed: () {
+                _resetHandledBookingIds();
+                Navigator.pop(context);
+                _startNotificationCheck();
+              },
+              child: const Text('Đặt lại thông báo'),
             ),
           ],
         ),
@@ -203,18 +325,14 @@ class _AppointmentListAdminScreenState extends State<AppointmentListAdminScreen>
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey[200]!, width: 1),
+        side: BorderSide(color: Colors.grey[200]!, width: 1.0), // Sửa lỗi: thay 'lạnh' bằng 1.0
       ),
       elevation: 4,
       shadowColor: Colors.grey.withOpacity(0.3),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () async {
-          setState(() {
-            _handledBookingIds.add(booking.id);
-            _newBookings.removeWhere((b) => b.id == booking.id);
-            _newBookingCount = _newBookings.length;
-          });
+          _markBookingAsHandled(booking.id);
           final updated = await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => AppointmentDetailAdminScreen(bookingId: booking.id)),

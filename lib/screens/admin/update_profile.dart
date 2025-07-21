@@ -229,7 +229,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
       appBar: AppBar(
         systemOverlayStyle: SystemUiOverlayStyle.light,
         title: const Text(
-          "Cập nhật hồ sơ quản trị",
+          "Cập nhật hồ sơ",
           style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
         ),
         actions: [
