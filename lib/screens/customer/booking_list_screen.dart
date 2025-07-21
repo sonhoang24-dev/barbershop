@@ -24,6 +24,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   bool hasNewStatus = false;
   Timer? _pollingTimer;
   DateTime? _lastLoadTime;
+  List<String> deletedNotificationIds = [];
 
   @override
   void initState() {
@@ -69,6 +70,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
     _lastLoadTime = now;
 
     setState(() => isLoading = true);
+
     final prefs = await SharedPreferences.getInstance();
     final userId = prefs.getInt('id') ?? 0;
     final url = Uri.parse("https://htdvapple.site/barbershop/backend/services/get_bookings_by_user.php?user_id=$userId");
@@ -84,7 +86,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
           final oldStatusList = prefs.getStringList('booking_status_list') ?? [];
           final Map<String, String> oldStatusMap = {
             for (var status in oldStatusList)
-              status.split(':')[0].trim(): status.split(':')[1].trim(),
+              if (status.contains(":")) status.split(":")[0].trim(): status.split(":")[1].trim(),
           };
 
           final List<Map<String, dynamic>> tempNotifications = List.from(notifications);
@@ -94,9 +96,8 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
             final newBookingStatus = (booking['status'] ?? 'Không xác định').trim();
             final oldBookingStatus = oldStatusMap[bookingId];
 
-            print('Kiểm tra booking $bookingId: old = $oldBookingStatus | new = $newBookingStatus');
-
-            if (oldBookingStatus == null || oldBookingStatus != newBookingStatus) {
+            if ((oldBookingStatus == null || oldBookingStatus != newBookingStatus) &&
+                !deletedNotificationIds.contains(bookingId)) {
               final serviceName = booking['service'] ?? 'Dịch vụ';
               final date = booking['date'] ?? 'N/A';
               final time = booking['time']?.substring(0, 5) ?? 'N/A';
@@ -104,7 +105,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
 
               final message = oldBookingStatus == null
                   ? 'Lịch hẹn mới: $serviceName vào $formattedDateTime'
-                  : '$newBookingStatus: Lịch hẹn $serviceName vào $formattedDateTime';
+                  : '$newBookingStatus cho lịch hẹn $serviceName vào $formattedDateTime';
 
               final iconName = oldBookingStatus == null ? 'ic_calendar' : 'ic_notification';
 
@@ -114,6 +115,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                 'timestamp': DateTime.now().toIso8601String(),
               });
 
+              print('[Thông báo] $message');
               await _showSystemNotification(
                 oldBookingStatus == null ? 'Lịch hẹn mới' : 'Cập nhật lịch hẹn',
                 message,
@@ -122,6 +124,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
             }
           }
 
+          // Lưu trạng thái hiện tại
           final newStatusList = newBookings.map((e) =>
           '${e['id'].toString().trim()}:${(e['status'] ?? 'Không xác định').trim()}'
           ).toList();
@@ -169,6 +172,8 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
     final prefs = await SharedPreferences.getInstance();
     final notificationStrings = prefs.getStringList('notifications') ?? [];
     final viewed = prefs.getStringList('viewed_notifications') ?? [];
+    final deleted = prefs.getStringList('deleted_notification_ids') ?? [];
+    deletedNotificationIds = deleted;
     setState(() {
       notifications = notificationStrings.map((n) => jsonDecode(n) as Map<String, dynamic>).toList();
       notifications.sort((a, b) => DateTime.parse(b['timestamp']).compareTo(DateTime.parse(a['timestamp'])));
@@ -190,25 +195,27 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   }
 
   Future<void> _removeNotification(int index) async {
-    if (index < 0 || index >= notifications.length) {
-      print('Invalid index: $index, notifications length: ${notifications.length}');
-      return;
-    }
-    print('Removing notification at index: $index');
+    if (index < 0 || index >= notifications.length) return;
+
     final prefs = await SharedPreferences.getInstance();
     final notification = notifications[index];
-    print('Notification to remove: $notification');
-    print('Before removal: ${notifications.length} notifications');
+    final bookingId = notification['id'];
+
+    if (bookingId != null && !deletedNotificationIds.contains(bookingId)) {
+      deletedNotificationIds.add(bookingId);
+      await prefs.setStringList('deleted_notification_ids', deletedNotificationIds);
+    }
+
     setState(() {
       notifications.removeAt(index);
       hasNewStatus = notifications.any((n) => !viewedNotifications.contains(n['timestamp']));
     });
-    print('After removal: ${notifications.length} notifications');
+
     await prefs.setStringList(
       'notifications',
       notifications.map((n) => jsonEncode(n)).toList(),
     );
-    print('Saved notifications to SharedPreferences: ${notifications.length} items');
+
     widget.onNotificationChanged?.call();
   }
 

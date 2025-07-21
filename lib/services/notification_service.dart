@@ -18,7 +18,6 @@ Future<void> initializeLocalNotifications() async {
   await flutterLocalNotificationsPlugin.initialize(settings);
 }
 
-/// Gọi hàm này ở `main()` hoặc trong `initState` của widget đầu tiên để xin quyền
 Future<void> requestNotificationPermission() async {
   if (await Permission.notification.isDenied) {
     final status = await Permission.notification.request();

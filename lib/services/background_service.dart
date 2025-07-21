@@ -83,7 +83,6 @@ Future<void> checkNewBookingsAndNotify() async {
       );
     }
 
-    // Cập nhật danh sách đã thông báo
     await prefs.setStringList('notified_booking_ids', newBookingIds);
   } catch (e) {
     print('[Background] Lỗi khi kiểm tra đặt lịch: $e');

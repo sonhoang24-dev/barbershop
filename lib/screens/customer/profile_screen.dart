@@ -37,7 +37,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove('id');
+    await prefs.remove('booking_status_list');
+    await prefs.remove('notifications');
+    await prefs.remove('viewed_notifications');
     if (!mounted) return;
     Navigator.pushNamedAndRemoveUntil(context, '/login', (_) => false);
   }
