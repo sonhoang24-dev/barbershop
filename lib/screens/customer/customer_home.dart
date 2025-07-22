@@ -19,6 +19,14 @@ class _CustomerHomeState extends State<CustomerHome> {
   late int _currentIndex;
   String _userName = "customer";
   bool _hasNewNotifications = false;
+  final List<Widget> _screens = [
+    const HomeScreen(),
+    BookingListScreen(
+      onNotificationChanged: () {},
+    ),
+    const ShopInfoScreen(),
+    const ProfileScreen(),
+  ];
 
   @override
   void initState() {
@@ -26,6 +34,10 @@ class _CustomerHomeState extends State<CustomerHome> {
     _currentIndex = widget.initialTab;
     _loadUserName();
     _loadNotificationStatus();
+    // Update the BookingListScreen's onNotificationChanged callback
+    _screens[1] = BookingListScreen(
+      onNotificationChanged: _loadNotificationStatus,
+    );
   }
 
   Future<void> _loadUserName() async {
@@ -55,28 +67,14 @@ class _CustomerHomeState extends State<CustomerHome> {
     }
   }
 
-  Widget _buildScreen(int index) {
-    switch (index) {
-      case 0:
-        return const HomeScreen();
-      case 1:
-        return BookingListScreen(
-          onNotificationChanged: _loadNotificationStatus,
-        );
-      case 2:
-        return const ShopInfoScreen();
-      case 3:
-        return const ProfileScreen();
-      default:
-        return const HomeScreen();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     return ConnectivityWrapper(
       child: Scaffold(
-        body: _buildScreen(_currentIndex),
+        body: IndexedStack(
+          index: _currentIndex,
+          children: _screens,
+        ),
         bottomNavigationBar: BottomNavigationBar(
           currentIndex: _currentIndex,
           selectedItemColor: Colors.teal,

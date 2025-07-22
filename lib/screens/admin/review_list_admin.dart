@@ -105,7 +105,7 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
 
   Widget buildFilter() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8), // Reduced padding for compactness
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -118,16 +118,16 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
             'Bộ lọc đánh giá',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.teal),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           DropdownButtonFormField<int>(
             decoration: _inputDecoration("Số sao"),
             value: selectedRating,
-            hint: const Text('Tất cả', style: TextStyle(fontSize: 11),),
+            hint: const Text('Tất cả', style: TextStyle(fontSize: 14)),
             items: [null, ...List.generate(5, (i) => i + 1)].map((s) {
               return DropdownMenuItem(
                 value: s,
                 child: s == null
-                    ? const Text('Tất cả',style: TextStyle(fontSize: 15))
+                    ? const Text('Tất cả', style: TextStyle(fontSize: 14))
                     : Row(
                   children: [
                     ...List.generate(s, (_) => const Icon(Icons.star, color: Colors.amber, size: 18)),
@@ -142,11 +142,11 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
               fetchReviews();
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // Reduced height
           DropdownButtonFormField<int>(
             decoration: _inputDecoration("Dịch vụ"),
             value: selectedServiceId,
-            hint: const Text('Tất cả'), // Hiển thị "Tất cả" khi không chọn
+            hint: const Text('Tất cả', style: TextStyle(fontSize: 14)),
             items: [null, ...services].map<DropdownMenuItem<int>>((s) {
               return DropdownMenuItem(
                 value: s == null ? null : int.tryParse(s['id'].toString()) ?? 0,
@@ -160,7 +160,7 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
               fetchReviews();
             },
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // Reduced height
           Align(
             alignment: Alignment.centerRight,
             child: ElevatedButton.icon(
@@ -239,48 +239,61 @@ class _ReviewListAdminScreenState extends State<ReviewListAdminScreen> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       appBar: AppBar(
-        title: const Text('Danh sách đánh giá', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text(
+          'Danh sách đánh giá',
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+        ),
         backgroundColor: Colors.teal,
         elevation: 0,
         centerTitle: true,
       ),
-      body: Padding(
-        padding: const EdgeInsets.only(left: 10), // Dịch chuyển nội dung sang phải 10 pixel
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              buildFilter(),
-              const SizedBox(height: 16),
-              if (errorMessage != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    errorMessage!,
-                    style: const TextStyle(color: Colors.red, fontSize: 14, fontWeight: FontWeight.w500),
-                    textAlign: TextAlign.center,
+      body: SafeArea(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                buildFilter(),
+                const SizedBox(height: 16),
+                if (errorMessage != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      errorMessage!,
+                      style: const TextStyle(
+                        color: Colors.red,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.5, // Constrain ListView height
+                  child: isLoading
+                      ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+                      : reviews.isEmpty
+                      ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.rate_review_outlined,
+                            size: 48, color: Colors.grey[400]),
+                        const SizedBox(height: 8),
+                        Text(
+                          "Không có đánh giá nào",
+                          style: TextStyle(color: Colors.grey[600]),
+                        ),
+                      ],
+                    ),
+                  )
+                      : ListView.builder(
+                    itemCount: reviews.length,
+                    itemBuilder: (_, i) => buildReviewItem(reviews[i]),
                   ),
                 ),
-              Expanded(
-                child: isLoading
-                    ? const Center(child: CircularProgressIndicator(color: Colors.teal))
-                    : reviews.isEmpty
-                    ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.rate_review_outlined, size: 48, color: Colors.grey[400]),
-                      const SizedBox(height: 8),
-                      Text("Không có đánh giá nào", style: TextStyle(color: Colors.grey[600])),
-                    ],
-                  ),
-                )
-                    : ListView.builder(
-                  itemCount: reviews.length,
-                  itemBuilder: (_, i) => buildReviewItem(reviews[i]),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

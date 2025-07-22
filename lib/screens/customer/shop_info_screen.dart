@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:intl/intl.dart';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -140,158 +139,162 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _isMapLoading
-                ? const Center(child: CircularProgressIndicator(color: Colors.teal))
-                : ClipRRect(
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
-              ),
-              child: GoogleMap(
-                onMapCreated: (controller) {
-                  _onMapCreated(controller);
-                  controller.animateCamera(
-                    CameraUpdate.newLatLngZoom(shopLocation, 15),
-                  );
-                },
-                initialCameraPosition: CameraPosition(
-                  target: shopLocation,
-                  zoom: 15,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Expanded(
+              flex: 2,
+              child: _isMapLoading
+                  ? const Center(child: CircularProgressIndicator(color: Colors.teal))
+                  : ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(16),
+                  bottomRight: Radius.circular(16),
                 ),
-                markers: {
-                  Marker(
-                    markerId: const MarkerId('shop'),
-                    position: shopLocation,
-                    infoWindow: const InfoWindow(title: 'Barbershop'),
+                child: GoogleMap(
+                  onMapCreated: (controller) {
+                    _onMapCreated(controller);
+                    controller.animateCamera(
+                      CameraUpdate.newLatLngZoom(shopLocation, 15),
+                    );
+                  },
+                  initialCameraPosition: CameraPosition(
+                    target: shopLocation,
+                    zoom: 15,
                   ),
-                },
-                zoomControlsEnabled: true,
-                myLocationEnabled: false,
-                myLocationButtonEnabled: false,
+                  markers: {
+                    Marker(
+                      markerId: const MarkerId('shop'),
+                      position: shopLocation,
+                      infoWindow: const InfoWindow(title: 'Barbershop'),
+                    ),
+                  },
+                  zoomControlsEnabled: true,
+                  myLocationEnabled: false,
+                  myLocationButtonEnabled: false,
+                ),
               ),
             ),
-          ),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 10,
-                  offset: Offset(0, -2),
-                )
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _infoRow(
-                  icon: Icons.location_on_outlined,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        shopAddress,
-                        style: const TextStyle(fontSize: 16),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        status,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: status.contains("Đang")
-                              ? Colors.green
-                              : status.contains("Sắp")
-                              ? Colors.orange
-                              : Colors.red,
-                        ),
+            Expanded(
+              flex: 1,
+              child: SingleChildScrollView(
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black12,
+                        blurRadius: 10,
+                        offset: Offset(0, -2),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(height: 20),
-                _infoRow(
-                  icon: Icons.access_time,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text('Giờ làm việc:', style: TextStyle(fontWeight: FontWeight.bold)),
-                      SizedBox(height: 6),
-                      Text('• Sáng: 8:00 - 12:00'),
-                      Text('• Chiều: 13:00 - 17:00'),
-                      Text('• Tối: 18:00 - 22:00'),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _infoRow(
-                  icon: Icons.phone_outlined,
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      GestureDetector(
-                        onTap: _dialPhone,
-                        child: Row(
-                          children: const [
+                      _infoRow(
+                        icon: Icons.location_on_outlined,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                             Text(
-                              'Gọi Ngay',
+                              shopAddress,
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              status,
                               style: TextStyle(
-                                fontSize: 16,
-                                color: Colors.blue,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 12,
+                                color: status.contains("Đang")
+                                    ? Colors.green
+                                    : status.contains("Sắp")
+                                    ? Colors.orange
+                                    : Colors.red,
                               ),
                             ),
                           ],
                         ),
                       ),
-                      GestureDetector(
-                        onTap: _openZalo,
+                      const SizedBox(height: 12),
+                      _infoRow(
+                        icon: Icons.access_time,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: const [
+                            Text('Giờ làm việc:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            SizedBox(height: 4),
+                            Text('• Sáng: 8:00 - 12:00', style: TextStyle(fontSize: 12)),
+                            Text('• Chiều: 13:00 - 17:00', style: TextStyle(fontSize: 12)),
+                            Text('• Tối: 18:00 - 22:00', style: TextStyle(fontSize: 12)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _infoRow(
+                        icon: Icons.phone_outlined,
                         child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Image.network(
-                              'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Icon_of_Zalo.svg/1024px-Icon_of_Zalo.svg.png',
-                              width: 20,
-                              height: 20,
+                            GestureDetector(
+                              onTap: _dialPhone,
+                              child: const Text(
+                                'Gọi Ngay',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.blue,
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: 5),
-                            const Text(
-                              'Chat Zalo',
-                              style: TextStyle(fontSize: 16, color: Colors.blue),
+                            GestureDetector(
+                              onTap: _openZalo,
+                              child: Row(
+                                children: [
+                                  Image.network(
+                                    'https://upload.wikimedia.org/wikipedia/commons/thumb/9/91/Icon_of_Zalo.svg/1024px-Icon_of_Zalo.svg.png',
+                                    width: 16,
+                                    height: 16,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  const Text(
+                                    'Chat Zalo',
+                                    style: TextStyle(fontSize: 14, color: Colors.blue),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _openMap,
+                          icon: const Icon(Icons.navigation, size: 18),
+                          label: const Text("Chỉ đường tới cửa hàng", style: TextStyle(fontSize: 14)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.teal,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 2,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 30),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _openMap,
-                    icon: const Icon(Icons.navigation),
-                    label: const Text("Chỉ đường tới cửa hàng"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
-                      ),
-                      elevation: 2,
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -300,13 +303,13 @@ class _ShopInfoScreenState extends State<ShopInfoScreen> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, color: Colors.teal, size: 24),
-        const SizedBox(width: 12),
+        Icon(icon, color: Colors.teal, size: 20),
+        const SizedBox(width: 8),
         Expanded(
           child: child ??
               Text(
                 title ?? '',
-                style: const TextStyle(fontSize: 16),
+                style: const TextStyle(fontSize: 14),
               ),
         ),
       ],
