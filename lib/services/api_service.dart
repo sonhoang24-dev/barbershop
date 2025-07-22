@@ -110,8 +110,16 @@ class ApiService {
   }
 
   // -------------------- SERVICES --------------------
-  static Future<List<Service>> fetchServices() async {
-    final response = await http.get(Uri.parse('$baseUrl/services/list_for_customer.php'));
+  static Future<List<Service>> fetchServices({String searchTerm = ''}) async {
+    String url = '$baseUrl/services/list_for_customer.php';
+
+    // Nếu có keyword thì thêm query param
+    if (searchTerm.isNotEmpty) {
+      url += '?keyword=${Uri.encodeComponent(searchTerm)}';
+    }
+
+    final response = await http.get(Uri.parse(url));
+
     if (response.statusCode == 200 && response.body.isNotEmpty) {
       final data = jsonDecode(response.body);
       if (data is List) {

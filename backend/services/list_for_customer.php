@@ -4,6 +4,8 @@ header("Content-Type: application/json; charset=UTF-8");
 error_reporting(0);
 ini_set('display_errors', 0);
 
+$keyword = isset($_GET['keyword']) ? trim($_GET['keyword']) : '';
+
 $sql = "
 SELECT
     s.id,
@@ -16,6 +18,14 @@ FROM services s
 LEFT JOIN bookings b ON s.id = b.service_id
 LEFT JOIN reviews r ON b.id = r.booking_id
 WHERE s.status = 'Đang hoạt động'
+";
+
+if ($keyword !== '') {
+    $keyword = $conn->real_escape_string($keyword);
+    $sql .= " AND s.name LIKE '%$keyword%'";
+}
+
+$sql .= "
 GROUP BY s.id
 ORDER BY s.created_at DESC;
 ";
@@ -32,7 +42,6 @@ while ($row = $result->fetch_assoc()) {
 
     while ($imgRow = $imgResult->fetch_assoc()) {
         $imageData = $imgRow['image'];
-
         $base64 = base64_encode($imageData);
         $images[] = "data:image/jpeg;base64,$base64";
     }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -16,16 +17,28 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Service> _services = [];
   bool _loading = true;
   final formatCurrency = NumberFormat("#,##0", "vi_VN");
+  final TextEditingController _searchController = TextEditingController();
+  bool _isSearchActive = false;
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     _fetchServices();
+    _searchController.addListener(_onSearchChanged);
   }
 
-  Future<void> _fetchServices() async {
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchServices({String searchTerm = ''}) async {
     try {
-      final data = await ApiService.fetchServices();
+      setState(() => _loading = true);
+      final data = await ApiService.fetchServices(searchTerm: searchTerm);
       if (!mounted) return;
       setState(() {
         _services = data;
@@ -42,29 +55,77 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _onSearchChanged() {
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      final searchTerm = _searchController.text.trim();
+      _fetchServices(searchTerm: searchTerm);
+    });
+  }
+
   bool _isNewService(String? createdAt) {
     if (createdAt == null) return false;
     final date = DateTime.tryParse(createdAt);
-    if (date == null) {
-      return false;
-    }
-    final now = DateTime.now(); // giữ local time
-    final diff = now.difference(date).inDays;
-    return diff <= 7;
+    if (date == null) return false;
+    return DateTime.now().difference(date).inDays <= 7;
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Dịch vụ đặt lịch cắt tóc", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        title: _isSearchActive
+            ? TextField(
+          controller: _searchController,
+          autofocus: true,
+          decoration: InputDecoration(
+            hintText: 'Tìm kiếm dịch vụ...',
+            hintStyle: TextStyle(color: Colors.white70),
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.symmetric(vertical: 8),
+            suffixIcon: IconButton(
+              icon: Icon(Icons.clear, color: Colors.white70),
+              onPressed: () {
+                _searchController.clear();
+                _fetchServices();
+              },
+            ),
+          ),
+          style: TextStyle(color: Colors.white),
+        )
+            : const Text(
+          "Dịch vụ đặt lịch cắt tóc",
+          style: TextStyle(fontSize: 20,color: Colors.white, fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.teal[700],
         centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(_isSearchActive ? Icons.close : Icons.search),
+            color: Colors.white,
+            onPressed: () {
+              setState(() {
+                _isSearchActive = !_isSearchActive;
+                if (!_isSearchActive) {
+                  _searchController.clear();
+                  _fetchServices();
+                }
+              });
+            },
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Colors.teal))
           : _services.isEmpty
-          ? const Center(child: Text("Chưa có dịch vụ nào", style: TextStyle(color: Colors.teal)))
+          ? Center(
+        child: Text(
+          _searchController.text.isNotEmpty
+              ? "Không tìm thấy dịch vụ phù hợp"
+              : "Chưa có dịch vụ nào",
+          style: TextStyle(color: Colors.teal),
+        ),
+      )
           : Padding(
         padding: const EdgeInsets.all(12),
         child: GridView.builder(
@@ -175,49 +236,36 @@ class _HomeScreenState extends State<HomeScreen> {
               Positioned(
                 top: 0,
                 left: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: const BoxDecoration(
-                    color: Colors.redAccent,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    "Dịch vụ mới",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            if (isHighRated)
+                child: _buildBadge("Dịch vụ mới", Colors.redAccent, Colors.white),
+              )
+            else if (isHighRated)
               Positioned(
                 top: 0,
                 left: 0,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: const BoxDecoration(
-                    color: Colors.amber,
-                    borderRadius: BorderRadius.only(
-                      topLeft: Radius.circular(16),
-                      bottomRight: Radius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    "Đánh giá cao",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
+                child: _buildBadge("Đánh giá cao", Colors.amber, Colors.black),
               ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBadge(String text, Color bgColor, Color textColor) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          bottomRight: Radius.circular(8),
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: textColor,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
         ),
       ),
     );
