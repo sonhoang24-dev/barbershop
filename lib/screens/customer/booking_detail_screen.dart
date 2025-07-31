@@ -132,7 +132,7 @@ class _BookingDetailScreenState extends State<BookingDetailScreen> {
       final userId = prefs.getInt('id');
       if (userId == null) throw Exception("Không tìm thấy user_id");
 
-      await ReviewService.submitReview(
+      await ReviewService.submitReview( // gửi đánh giá!!!
         bookingId: booking['id'],
         userId: userId,
         rating: _rating!,

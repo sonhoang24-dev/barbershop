@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:Barbershopdht/screens/admin/review_list_admin.dart';
 import 'manage_employees.dart';
@@ -21,25 +22,32 @@ class AdminDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6F8),
+      backgroundColor: const Color(0xFFF9FAFB),
       appBar: AppBar(
-        title: const Text('Trang Quản Trị', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: Text(
+          'Trang Quản Trị',
+          style: GoogleFonts.poppins(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
         centerTitle: true,
         backgroundColor: Colors.teal.shade700,
         actions: [
           IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white ),
+            icon: const Icon(Icons.logout, color: Colors.white),
             tooltip: 'Đăng xuất',
             onPressed: () => _logout(context),
           ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(20),
         child: GridView.count(
           crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
+          crossAxisSpacing: 18,
+          mainAxisSpacing: 18,
           children: [
             _buildTile(
               context,
@@ -55,7 +63,7 @@ class AdminDashboard extends StatelessWidget {
               context,
               icon: Icons.design_services,
               label: 'Dịch vụ',
-              color: Colors.orange,
+              color: Colors.orangeAccent,
               onTap: () => Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ManageServicesScreen()),
@@ -119,12 +127,12 @@ class AdminDashboard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(20),
           boxShadow: const [
             BoxShadow(
               color: Colors.black12,
-              blurRadius: 6,
-              offset: Offset(2, 2),
+              blurRadius: 8,
+              offset: Offset(2, 4),
             ),
           ],
         ),
@@ -132,17 +140,21 @@ class AdminDashboard extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(
-              radius: 28,
+              radius: 32,
               backgroundColor: color.withOpacity(0.1),
-              child: Icon(icon, size: 30, color: color),
+              child: Icon(icon, size: 34, color: color),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
               child: Text(
                 label,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style: GoogleFonts.poppins(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ],

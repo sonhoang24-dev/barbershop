@@ -273,7 +273,7 @@ class _UpdateProfileAdminScreenState extends State<UpdateProfileAdminScreen> {
             child: Column(
               children: [
                 _buildAvatarPreview(),
-                const SizedBox(height: 30),
+                const SizedBox(height: 35),
                 _buildPasswordField("Họ tên", _nameController, isPassword: false, validator: false),
                 _buildPasswordField("Email", _emailController, isPassword: false, validator: true),
                 _buildPasswordField("Số điện thoại", _phoneController, isPassword: false, validator: false),

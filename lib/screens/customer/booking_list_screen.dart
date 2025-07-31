@@ -7,6 +7,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'booking_detail_screen.dart';
 import 'package:Barbershopdht/services/notification_service.dart';
+import 'package:permission_handler/permission_handler.dart';
+
 
 class BookingListScreen extends StatefulWidget {
   final VoidCallback? onNotificationChanged;
@@ -16,21 +18,43 @@ class BookingListScreen extends StatefulWidget {
   State<BookingListScreen> createState() => _BookingListScreenState();
 }
 
-class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindingObserver {
+class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindingObserver, TickerProviderStateMixin {
   List<Map<String, dynamic>> bookings = [];
   List<Map<String, dynamic>> notifications = [];
   List<String> viewedNotifications = [];
   bool isLoading = true;
   bool hasNewStatus = false;
   Timer? _pollingTimer;
+  late AnimationController _animationController;
+  Animation<double>? _shakeAnimation;
   DateTime? _lastLoadTime;
   List<String> deletedNotificationIds = [];
 
   @override
   void initState() {
     super.initState();
+    _requestNotificationPermission();
     WidgetsBinding.instance.addObserver(this);
     initializeLocalNotifications();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 800),
+    );
+    _shakeAnimation = Tween<double>(begin: -0.1, end: 0.1)
+        .chain(CurveTween(curve: Curves.elasticIn))
+        .animate(_animationController);
+
+    _animationController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        _animationController.reverse();
+      } else if (status == AnimationStatus.dismissed && hasNewStatus) {
+        Future.delayed(const Duration(seconds: 2), () {
+          if (hasNewStatus && mounted) _animationController.forward();
+        });
+      }
+    });
+    _animationController.forward(); // bắt đầu animation nếu có trạng thái
+
     _loadBookings();
     _loadNotifications();
     _startPolling();
@@ -54,6 +78,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   void dispose() {
     _pollingTimer?.cancel();
     WidgetsBinding.instance.removeObserver(this);
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -66,7 +91,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
 
   Future<void> _loadBookings() async {
     final now = DateTime.now();
-    if (_lastLoadTime != null && now.difference(_lastLoadTime!).inSeconds < 15) return;
+    if (_lastLoadTime != null && now.difference(_lastLoadTime!).inSeconds < 15) return; // tải lại các dịch vụ đẵ đặt sao 15s
     _lastLoadTime = now;
 
     setState(() => isLoading = true);
@@ -97,7 +122,9 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
             final oldBookingStatus = oldStatusMap[bookingId];
 
             if ((oldBookingStatus == null || oldBookingStatus != newBookingStatus) &&
+                newBookingStatus != 'Đã hoàn thành' &&
                 !deletedNotificationIds.contains(bookingId)) {
+
               final serviceName = booking['service'] ?? 'Dịch vụ';
               final date = booking['date'] ?? 'N/A';
               final time = booking['time']?.substring(0, 5) ?? 'N/A';
@@ -268,16 +295,20 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
   }
 
   Future<void> _showSystemNotification(String title, String body, String iconName) async {
-    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
       'booking_channel_id',
       'Booking Notifications',
       channelDescription: 'Thông báo lịch hẹn',
       importance: Importance.max,
       priority: Priority.high,
-      icon: iconName,
+      icon: '@mipmap/ic_launcher', // nên dùng icon hệ thống
+      playSound: true,
+      enableVibration: true,
+      visibility: NotificationVisibility.public, // Cho phép hiện trên màn hình khóa
+      ticker: 'ticker',
     );
 
-    final NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
+    const NotificationDetails platformDetails = NotificationDetails(android: androidDetails);
 
     await flutterLocalNotificationsPlugin.show(
       DateTime.now().millisecondsSinceEpoch ~/ 1000,
@@ -286,6 +317,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
       platformDetails,
     );
   }
+
 
   void _showNotificationsDialog() {
     showDialog(
@@ -388,36 +420,64 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
         actions: [
           Stack(
             children: [
-              IconButton(
+              (_shakeAnimation != null)
+                  ? AnimatedBuilder(
+                animation: _shakeAnimation!,
+                builder: (context, child) {
+                  return Transform.rotate(
+                    angle: hasNewStatus ? _shakeAnimation!.value : 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.notifications, color: Colors.white),
+                      onPressed: () {
+                        _showNotificationsDialog();
+                        _animationController.stop();
+                      },
+                    ),
+                  );
+                },
+              )
+                  : IconButton(
                 icon: const Icon(Icons.notifications, color: Colors.white),
                 onPressed: _showNotificationsDialog,
               ),
-              if (hasNewStatus)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Text(
-                      '${notifications.length - viewedNotifications.length}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
+
+
+              Builder(
+                builder: (context) {
+                  final unseenCount = notifications
+                      .where((n) => !viewedNotifications.contains(n['timestamp']))
+                      .length;
+
+                  if (unseenCount == 0) return const SizedBox.shrink();
+
+                  return Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      textAlign: TextAlign.center,
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        unseenCount > 99 ? '99+' : '$unseenCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
-                  ),
-                ),
+                  );
+                },
+              ),
             ],
           ),
+
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadBookings,
@@ -455,7 +515,7 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
                 );
                 await prefs.setStringList('viewed_notifications', viewedNotifications);
 
-                final result = await Navigator.push(
+                final result = await Navigator.push( //chuyển sang trang chi tiết lịch đặt
                   context,
                   MaterialPageRoute(
                     builder: (_) => BookingDetailScreen(
@@ -565,4 +625,11 @@ class _BookingListScreenState extends State<BookingListScreen> with WidgetsBindi
       ),
     );
   }
+  Future<void> _requestNotificationPermission() async {
+    final status = await Permission.notification.status;
+    if (status.isDenied || status.isRestricted || status.isPermanentlyDenied) {
+      await Permission.notification.request();
+    }
+  }
+
 }
